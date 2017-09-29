@@ -20,7 +20,10 @@ PWD = 'qdBSC#1234'
 SAVE_DIR = os.getcwd()
 CONN = None
 DATA_BAK = os.path.join(SAVE_DIR, "my_ftp.pkl")
-MY_FTP = collections.namedtuple("MY_FTP", "host port user pwd target_dir")
+MAIL_KEYWORD = r'\d-\d{8}'
+#MAIL_KEYWORD = '1-6853088'
+MY_FTP = collections.namedtuple("MY_FTP",\
+ "host port user pwd target_dir mail_keyword")
 
 file_number = 0
 dir_number = 0
@@ -28,7 +31,7 @@ downloaded_number = 0
 
 
 def save_bak():
-	data_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR)
+	data_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR, MAIL_KEYWORD)
 	print "data_bak to be saved as:", data_bak
 	pickle.dump(data_bak, open(DATA_BAK,"wb"), True)
 ############save_bak()#####################
@@ -238,23 +241,8 @@ class My_Ftp(object):
 			width=20,command=self.thread_ftp)	
 		self.button_qconn.grid(row=2,column=3)
 
-		#Auto download
-		s1 = "Enable mail fiter function to automatically"
-		s2 = ""
-		s3 ="ftp download logs according to specific mail subject"
-		s = s1+s2+s3
 
-		self.v_chk = BooleanVar() 
-		self.chk_auto = Checkbutton(self.lframe_autoconn, text = s, variable = self.v_chk,\
-			command = self.periodical_check).pack()
-		self.label_mail = Label(self.lframe_autoconn, text = 'Keyword in Mail subject:').pack(side=LEFT)
-		self.v_mail = StringVar()
-		self.entry_mail = Entry(self.lframe_autoconn, textvariable=self.v_mail,width=30)
-		self.entry_mail.pack(side=LEFT)
-
-		self.pwindow_qconn.pack()
-
-		#retrive data from disk:
+		#######retrive data from disk#############:
 		data_bak = retrive_bak()
 		if data_bak:
 
@@ -270,6 +258,55 @@ class My_Ftp(object):
 			self.v_pwd.set(PWD)
 			self.v_ddirname.set(DOWNLOAD_DIR)	
 			print "DEBUG data_bak is NONE!!!"
+		#######retrive data from disk#############:
+
+
+		#############Auto download###############
+		self.fm_up = Frame(self.lframe_autoconn)
+
+
+
+		s1 = "Enable mail fiter function to automatically"
+		s2 = ""
+		s3 ="ftp download logs according to specific mail subject"
+		s = s1+s2+s3
+
+		self.v_chk = BooleanVar() 
+		self.chk_auto = Checkbutton(self.fm_up, text = s, variable = self.v_chk,\
+			command = self.periodical_check).pack()
+		self.label_mail = Label(self.fm_up, text = 'Keyword in Mail subject: ').pack(side=LEFT)
+		self.v_mail = StringVar()
+		self.entry_mail = Entry(self.fm_up, textvariable=self.v_mail,width=30)
+		self.entry_mail.pack(side=LEFT)
+
+		self.fm_up.pack()
+
+
+		self.fm_down = Frame(self.lframe_autoconn)
+
+		self.label_new = Label(self.fm_down, \
+			text = "Auto Download Dirname:",justify='left').pack(side=LEFT)
+
+		self.v_new_dirname = StringVar()
+		print "DEBUG self.v_ddirname.get()=",self.v_ddirname.get()
+		self.v_new_dirname.set(self.v_ddirname.get())
+		self.label_new_dirname = Label(self.fm_down, \
+			textvariable=self.v_new_dirname,justify='left')
+		self.label_new_dirname.pack(side = 'left')
+
+		self.label_blank = Label(self.fm_down,text= ' '*12).pack(side = 'left')
+		self.label_new_dirname.pack(side = 'left')
+		self.button_start_auto_download = Button(self.fm_down,text="Start Monitor",\
+			width=20,command=self.start_monitor).pack()		
+
+		self.fm_down.pack(side='left')
+
+
+
+
+		self.pwindow_qconn.pack()
+
+
 
 		##############init()###############
 
@@ -307,6 +344,9 @@ class My_Ftp(object):
 		self.button_qconn.config(text="Direct download",bg='white',relief='raised',state='normal')
 	##############direct_download()##################
 
+	def start_monitor(self):
+		pass
+
 	def periodical_check(self):
 		if self.v_chk.get() == 1:
 			print "periodical check started!"
@@ -328,6 +368,7 @@ class My_Ftp(object):
 			ACC = self.v_user.get()
 			PWD = self.v_pwd.get()
 			DOWNLOAD_DIR = self.v_ddirname.get()
+			MAIL_KEYWORD = self.v_mail.get()
 
 			save_bak()
 
