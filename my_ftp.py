@@ -9,24 +9,58 @@ import ftplib
 import os
 import socket
 import threading
+import cPickle as pickle
+import collections
 
 HOST = '135.242.80.16'
 PORT = '8080'
 DOWNLOAD_DIR = '/01_Training/02_PMU/02_Documents'
-ACC = ''
-PWD = ''
+ACC = 'QD-BSC'
+PWD = 'qdBSC#1234'
 SAVE_DIR = os.getcwd()
-CONN = ftplib.FTP()
-
+CONN = None
+DATA_BAK = os.path.join(SAVE_DIR, "my_ftp.pkl")
+MY_FTP = collections.namedtuple("MY_FTP", "host port user pwd target_dir")
 
 file_number = 0
 dir_number = 0
 downloaded_number = 0
 
-def ftp_conn(host, port, acc, pwd):
-	print "DEBUG host=",host
-	print "DBUEG port = ",port
+
+def save_bak():
+	data_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR)
+	print "data_bak to be saved as:", data_bak
+	pickle.dump(data_bak, open(DATA_BAK,"wb"), True)
+############save_bak()#####################
+
+
+def retrive_bak():
 	try:
+		data_bak = pickle.load(open(DATA_BAK, "rb"))
+
+		print "DEBUG retrive_bak data_bak=",data_bak
+		HOST = data_bak.host
+		PORT = data_bak.port
+		ACC = data_bak.user
+		PWD = data_bak.pwd
+		DOWNLOAD_DIR = data_bak.target_dir
+
+	except Exception as e:
+		print "ERROR occure, e=",e
+
+	else:
+		print "Retrive success!"
+		print "data_bak = ",data_bak
+		return data_bak	
+	return None
+############retrive_bak()###################
+
+
+
+def ftp_conn(host, port, acc, pwd):
+	global CONN
+	try:
+		CONN = ftplib.FTP()
 		CONN.connect(host, port)
 	except (socket.error, socket.gaierror), e:
 		print 'ERROR: cannot reach "%s"' % HOST
@@ -40,6 +74,7 @@ def ftp_conn(host, port, acc, pwd):
 		f.quit()
 		return False
 	print '*** Logged in as "%s"' % ACC
+
 	return True
 ############ftp_conn()#####################
 
@@ -84,6 +119,7 @@ def ftp_download_dir(dirname):
 def get_file_number(dirname):
 	global file_number
 	global dir_number
+	global CONN
 
 	try:
 		CONN.cwd(dirname)
@@ -114,8 +150,7 @@ def get_file_number(dirname):
 
 def my_download(host, port, acc, pwd, save_dir, download_dir):
 	global downloaded_number
-	print "DEBUG my_download host=",host
-	print "DEBUG port = ",port
+	global CONN
 	os.chdir(save_dir)
 
 	res = ftp_conn(host, port, acc, pwd)
@@ -127,13 +162,12 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 		return 
 
 
-	print "DEBUG waiting for calculate to total file number..."
+	print "Waiting for calculate to total file number..."
 	m,n = get_file_number(download_dir)
-	print "DEBUG total %d files, %d folders to be downloaded" % (n, m)
+	print "Total %d files, %d folders to be downloaded" % (n, m)
 	ftp_download_dir(download_dir)
 	CONN.quit()
 
-	print "DEBUG n = %d, downloaded_number = %d" %(n, downloaded_number)
 	if n == downloaded_number:
 		print "#########################"
 		print "DEBUG Downloaded Success!"	
@@ -145,13 +179,20 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 
 class My_Ftp(object):
 	def __init__(self, parent_top):
+		global HOST
+		global PORT
+		global ACC
+		global PWD
+		global DOWNLOAD_DIR
+
 		self.parent_top = parent_top
 		self.ftp_top = Toplevel(parent_top)
 		self.ftp_top.title("Ftp_Downloader")
-		self.ftp_top.geometry('700x300+300+220')
+		self.ftp_top.geometry('600x300+300+220')
 		#self.ftp_top.iconbitmap(icon_path)
 		self.ftp_top.attributes("-toolwindow", 1)
 		#self.ftp_top.wm_attributes('-topmost',1)
+		self.ftp_top.protocol("WM_DELETE_WINDOW",lambda :self.ask_quit(self.ftp_top))
 
 		blank_label_1 = Label(self.ftp_top, text = '').pack()
 		self.pwindow_qconn = ttk.Panedwindow(self.ftp_top, orient=VERTICAL)
@@ -212,6 +253,24 @@ class My_Ftp(object):
 		self.entry_mail.pack(side=LEFT)
 
 		self.pwindow_qconn.pack()
+
+		#retrive data from disk:
+		data_bak = retrive_bak()
+		if data_bak:
+
+			self.v_host.set(data_bak.host)
+			self.v_port.set(data_bak.port)
+			self.v_user.set(data_bak.user)
+			self.v_pwd.set(data_bak.pwd)
+			self.v_ddirname.set(data_bak.target_dir)
+		else:
+			self.v_host.set(HOST)
+			self.v_port.set(PORT)
+			self.v_user.set(ACC)
+			self.v_pwd.set(PWD)
+			self.v_ddirname.set(DOWNLOAD_DIR)	
+			print "DEBUG data_bak is NONE!!!"
+
 		##############init()###############
 
 
@@ -230,7 +289,7 @@ class My_Ftp(object):
 		global ACC
 		global PWD
 		global DOWNLOAD_DIR
-		print "Debug direct_download starts"
+		print "Direct_download starts"
 
 		if self.v_host.get():
 			HOST = self.v_host.get()
@@ -254,6 +313,28 @@ class My_Ftp(object):
 		else:
 			print "stopped"	
 	########Periodical_check()#####################
+
+	def ask_quit(self, top):
+		global HOST
+		global PORT
+		global ACC
+		global PWD
+		global DOWNLOAD_DIR
+
+		if askyesno("Tip","Save or not?"):
+			#save
+			HOST = self.v_host.get()
+			PORT = self.v_port.get()
+			ACC = self.v_user.get()
+			PWD = self.v_pwd.get()
+			DOWNLOAD_DIR = self.v_ddirname.get()
+
+			save_bak()
+
+		else:
+			pass
+
+		top.quit()
 
 	###########init()##############		
 
