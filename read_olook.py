@@ -64,11 +64,14 @@ class My_Outlook():
 	def find_mail(self, subfolder, mail_subject_keyword):
 		global TIME_POINT
 
+		print 'DEBUG start find_mail'
+
 		mail_number = subfolder.Items.Count
 		strtime_latest_mail = str(subfolder.Items.Item(mail_number).SentOn)
 		mail_list = []
 
 		if not st_comp(strtime_latest_mail, TIME_POINT):
+			print "DEBUT return out!"
 			return mail_list
 
 
@@ -77,20 +80,31 @@ class My_Outlook():
 		re_rule = re.compile(mail_subject_keyword, re.I)
 
 		print "Check new mails received after time point",TIME_POINT
+		print "Filter with keyword:",mail_subject_keyword
+		print "type(keyword)=",type(mail_subject_keyword)
 		for i in range(mail_number, 0, -1):
 			strtime_rcv = str(subfolder.Items.Item(i).SentOn)
 			subject = subfolder.Items.Item(i).Subject
+			print "DEBUG type(subject)",type(subject)
+			print "DEBUG subject = ",subject
+			print "strtime_rcv:{0}, TIME_POINT:{1}".format(strtime_rcv,TIME_POINT)
 			if st_comp(strtime_rcv, TIME_POINT):
-				print "Mail Date:%s, subject:%s = "% (strtime_rcv, subject)
+				print "New mail received, Date:%s, subject:[%s] = "\
+				% (strtime_rcv, subject)
 				if re_rule.search(subject):
 					print "Find this mail!"
 					mail_list.append(subject)
+				else:
+					print "not this one...."
 			else:
+				print "the first mail is not fresh, so quit"
 				break
 
 		#update time to the checked latest mail's
 		if st_comp(strtime_latest_mail, TIME_POINT):
 			TIME_POINT  = strtime_latest_mail
+
+		print "DEBUG find_mail, mail_list=",mail_list
 
 		return mail_list
 	############find_mail()##############

@@ -24,7 +24,7 @@ PWD = 'qdBSC#1234'
 SAVE_DIR = os.getcwd()
 CONN = None
 DATA_BAK = os.path.join(SAVE_DIR, "my_ftp.pkl")
-MAIL_KEYWORD = r'\d-\d{8}'
+MAIL_KEYWORD = r'\d-\d{7}\d*'
 #MAIL_KEYWORD = '1-6853088'
 MY_FTP = collections.namedtuple("MY_FTP",\
  "host port user pwd target_dir mail_keyword")
@@ -165,12 +165,14 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	global CONN
 	os.chdir(save_dir)
 
+	print 'DEBUG start ftp download'
+	print "host:{0},port:{1},acc:{2},pwd:{3},target:{4}".format(\
+		host,port,acc,pwd,download_dir)
 	res = ftp_conn(host, port, acc, pwd)
 
 
 	if not res:
 		print "Error to logged in the %s" % host
-		print "DEBUG res=",res
 		return None
 
 
@@ -281,10 +283,9 @@ class My_Ftp(object):
 		self.fm_down = Frame(self.lframe_autoconn)
 
 		self.label_new = Label(self.fm_down, \
-			text = " Monitored Dirname: ",justify='left').pack(side=LEFT)
+			text = "New Dirname: ",justify='left').pack(side=LEFT)
 
 		self.v_new_dirname = StringVar()
-		print "DEBUG self.v_ddirname.get()=",self.v_ddirname.get()
 		self.label_new_dirname = Label(self.fm_down, \
 			textvariable=self.v_new_dirname,justify='left')
 		self.label_new_dirname.pack(side = 'left')
@@ -313,11 +314,10 @@ class My_Ftp(object):
 			self.v_pwd.set(PWD)
 			self.v_ddirname.set(DOWNLOAD_DIR)	
 			self.v_mail.set(MAIL_KEYWORD)
-			print "DEBUG data_bak is NONE!!!"
+			print "DEBUG data_bak is NONE"
 		#######retrive data from disk#############:
-		print "DEBUG v_ddirname=",self.v_ddirname.get()
-		self.v_new_dirname.set(self.v_ddirname.get() +'/' +'*'+ self.v_mail.get()+'*')
-
+		self.v_new_dirname.set(self.v_ddirname.get() +'/'+ self.v_mail.get())
+		self.periodical_check()
 		##############init()###############
 
 
@@ -358,7 +358,6 @@ class My_Ftp(object):
 		else:
 			print "DEBUG downloaded success in file %s" % res
 
-
 		self.button_qconn.config(text="Direct download",bg='white',relief='raised',state='normal')
 	##############direct_download()##################
 
@@ -366,8 +365,6 @@ class My_Ftp(object):
 	def start_monitor(self, mail_keyword):
 
 		pythoncom.CoInitialize() 
-
-
 
 		try:
 			my_ol = read_olook.My_Outlook()
@@ -409,9 +406,7 @@ class My_Ftp(object):
 
 				if MONITOR_STOP:
 					break
-		print "Debug CoUninitialize()"
 		pythoncom.CoUninitialize()
-		print "Debug CoUninitialize()"
 		self.button_monitor.config(text="Start monitor",bg='white',relief='raised',state='normal')
 
 	#############start_monitor()#############
@@ -421,6 +416,9 @@ class My_Ftp(object):
 
 		global MAIL_KEYWORD
 		global MONITOR_STOP
+
+
+		self.v_new_dirname.set(self.v_ddirname.get() +'/'+ self.v_mail.get())
 
 		if self.v_mail.get():
 			MAIL_KEYWORD = self.v_mail.get()
@@ -443,8 +441,19 @@ class My_Ftp(object):
 	def periodical_check(self):
 		if self.v_chk.get() == 1:
 			print "periodical check started!"
+			self.entry_mail.config(state='normal')
+			self.button_monitor.config(state='normal')
+			#self.label_mail.config(state='normal')
+			#self.label_new.config(state='normal')
+			self.label_new_dirname.config(state='normal')
+
 		else:
 			print "stopped"	
+			self.entry_mail.config(state='disable')
+			self.button_monitor.config(state='disable')
+			#self.label_mail.config(state='disable')
+			#self.label_new.config(state='disable')
+			self.label_new_dirname.config(state='disable')
 	########Periodical_check()#####################
 
 	def ask_quit(self, top):
