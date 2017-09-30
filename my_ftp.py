@@ -60,7 +60,7 @@ def printl(s):
 
 def save_bak():
 	data_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR, MAIL_KEYWORD)
-	printl("Save data_bak: %s" % data_bak)
+	printl("Save data_bak: {}".format(data_bak))
 	pickle.dump(data_bak, open(DATA_BAK,"wb"), True)
 ############save_bak()#####################
 
