@@ -41,7 +41,7 @@ downloaded_number = 0
 
 def save_bak():
 	data_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR, MAIL_KEYWORD)
-	print "data_bak to be saved as:", data_bak
+	print "Save data_bak: ", data_bak
 	pickle.dump(data_bak, open(DATA_BAK,"wb"), True)
 ############save_bak()#####################
 
@@ -50,7 +50,7 @@ def retrive_bak():
 	try:
 		data_bak = pickle.load(open(DATA_BAK, "rb"))
 
-		print "DEBUG retrive_bak data_bak=",data_bak
+		print "Retrive data_bak: ",data_bak
 		HOST = data_bak.host
 		PORT = data_bak.port
 		ACC = data_bak.user
@@ -61,8 +61,7 @@ def retrive_bak():
 		print "ERROR occure, e=",e
 
 	else:
-		print "Retrive success!"
-		print "data_bak = ",data_bak
+		print "Retrive success!\n"
 		return data_bak	
 	return None
 ############retrive_bak()###################
@@ -99,7 +98,7 @@ def ftp_download_dir(dirname):
 	except ftplib.error_perm:
 		print 'ERROR: cannot cd to "%s"' % dirname
 	else:
-		print("change diretocry into %s..." %dirname)
+		#print("change diretocry into %s..." %dirname)
 		new_dir = os.path.basename(dirname)
 		if not os.path.exists(new_dir):
 			os.mkdir(new_dir)
@@ -114,7 +113,7 @@ def ftp_download_dir(dirname):
 				ftp_download_dir(filelines_bk[i])
 				CONN.cwd('..')
 				os.chdir('..')
-				print("back to upper directory to downlaod....")
+				#print("back to upper directory to download....")
 			else:
 				try:
 					CONN.retrbinary('RETR %s' % filelines_bk[i], \
@@ -165,7 +164,7 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	global CONN
 	os.chdir(save_dir)
 
-	print 'DEBUG start ftp download'
+	print 'Start ftp download'
 	print "host:{0},port:{1},acc:{2},pwd:{3},target:{4}".format(\
 		host,port,acc,pwd,download_dir)
 	res = ftp_conn(host, port, acc, pwd)
@@ -183,9 +182,7 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	CONN.quit()
 
 	if n == downloaded_number:
-		print "#########################"
-		print "DEBUG Downloaded Success!"	
-		print "#########################"
+		print "All files have been downloaded successfully!"	
 
 	return os.path.join(save_dir,os.path.basename(download_dir))
 #############my_download()########
@@ -314,7 +311,6 @@ class My_Ftp(object):
 			self.v_pwd.set(PWD)
 			self.v_ddirname.set(DOWNLOAD_DIR)	
 			self.v_mail.set(MAIL_KEYWORD)
-			print "DEBUG data_bak is NONE"
 		#######retrive data from disk#############:
 		self.v_new_dirname.set(self.v_ddirname.get() +'/'+ self.v_mail.get())
 		self.periodical_check()
@@ -329,6 +325,7 @@ class My_Ftp(object):
 		#l_threads.append(t)
 		t.start()
 	##########thread_ftp()###################
+	
 
 	def direct_download(self):
 		global HOST
@@ -356,7 +353,7 @@ class My_Ftp(object):
 			#crash
 			#showerror(title='Ftp Connect Error', message="Cannot accesst to %s" % HOST)
 		else:
-			print "DEBUG downloaded success in file %s" % res
+			print "Downloaded success and saved in dir: %s" % res
 
 		self.button_qconn.config(text="Direct download",bg='white',relief='raised',state='normal')
 	##############direct_download()##################
@@ -365,30 +362,26 @@ class My_Ftp(object):
 	def start_monitor(self, mail_keyword):
 
 		pythoncom.CoInitialize() 
+		interval_time = 10
 
+		find_folder = "inbox"
 		try:
 			my_ol = read_olook.My_Outlook()
-			print "debug my_outlook.count =",my_ol.my_outlook.Count
 		except Exception as e:
-			print "debug outlook initialization failed, e:", e
+			print "Debug outlook initialization failed, e:", e
 			return
 
-		print "DEBUG start_monitor"
-		print "DEBUG my_ol=",my_ol
-		my_subfolder = my_ol.find_subfolder("inbox")
+		print "Start_monitor"
+		my_subfolder = my_ol.find_subfolder(find_folder)
 		re_rule = re.compile(mail_keyword, re.I)
 
 		if my_subfolder:
-			print 'DEBUG start periodical monitor task'
+			print 'Start monitor...'
 			while 1:
 				mail_title_list = []
 				mail_title_list = my_ol.find_mail(my_subfolder, mail_keyword)
-				print "Debug conaining keywords {0} mails found:{1}"\
-				.format(mail_keyword,mail_title_list)
 
-				#download start
 				if mail_title_list:
-
 					for mail_title in mail_title_list:
 						new_dirname = os.path.join\
 						(DOWNLOAD_DIR, re_rule.search(mail_title).group(0))
@@ -399,16 +392,17 @@ class My_Ftp(object):
 								#send to auto search
 								pass
 						else:
-							print "DEBUG download failed"
-				time.sleep(10)
-				print "DEBUG after 10 seconds,continue monitor"
-				print "DEBUG MONITOR_STOP=",MONITOR_STOP
+							print "Download failed"
+				time.sleep(interval_time)
+				print "%d seconds interval.." % interval_time
 
 				if MONITOR_STOP:
+					print "Monitor stopped"
 					break
+		else:
+			print "Error, no such folder:", find_folder	
 		pythoncom.CoUninitialize()
 		self.button_monitor.config(text="Start monitor",bg='white',relief='raised',state='normal')
-
 	#############start_monitor()#############
 
 
@@ -417,9 +411,7 @@ class My_Ftp(object):
 		global MAIL_KEYWORD
 		global MONITOR_STOP
 
-
 		self.v_new_dirname.set(self.v_ddirname.get() +'/'+ self.v_mail.get())
-
 		if self.v_mail.get():
 			MAIL_KEYWORD = self.v_mail.get()
 
@@ -448,13 +440,13 @@ class My_Ftp(object):
 			self.label_new_dirname.config(state='normal')
 
 		else:
-			print "stopped"	
 			self.entry_mail.config(state='disable')
 			self.button_monitor.config(state='disable')
 			#self.label_mail.config(state='disable')
 			#self.label_new.config(state='disable')
 			self.label_new_dirname.config(state='disable')
 	########Periodical_check()#####################
+
 
 	def ask_quit(self, top):
 		global HOST
