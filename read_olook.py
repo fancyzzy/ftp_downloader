@@ -4,10 +4,10 @@ from win32com.client import constants
 from win32com.client.gencache import EnsureDispatch as Dispatch
 import re
 import time
-
+import threading
 MAPI = Dispatch("Outlook.Application").GetNamespace("MAPI")
 print "DEBUG 6= ",MAPI.GetDefaultFolder(6)
-
+import pythoncom
 #New mails are to be checked after this time point
 TIME_POINT = time.strftime('%m/%d/%y %H:%M:%S',time.localtime(time.time()))
 #print "type TIME_POINT=",type(TIME_POINT)
@@ -43,7 +43,9 @@ class My_Outlook():
 
 
 	def find_subfolder(self, subfolder_name):
+		print "DEBUG find_folder starts"
 
+		print "DEBUG self.my_outlook=",self.my_outlook
 		array_size = self.my_outlook.Count
 		re_rule = re.compile(subfolder_name, re.I)
 
@@ -65,6 +67,10 @@ class My_Outlook():
 		mail_number = subfolder.Items.Count
 		strtime_latest_mail = str(subfolder.Items.Item(mail_number).SentOn)
 		mail_list = []
+
+		if not st_comp(strtime_latest_mail, TIME_POINT):
+			return mail_list
+
 
 		print "type of latest mail =",type(strtime_latest_mail)
 
@@ -92,8 +98,13 @@ class My_Outlook():
 #######Class My_Outlook###########################
 
 
-if __name__ == '__main__':
+def start_monitor():
 
+	print "DEBUG2 thread name= ", threading.currentThread().getName()
+
+	pythoncom.CoInitialize() 
+
+	print "DEBUG thread start_monitor start"
 	my_ol = My_Outlook()
 	my_subfolder = my_ol.find_subfolder("inbox")
 	print 'DEBUG my_subfolder=',my_subfolder
@@ -105,4 +116,27 @@ if __name__ == '__main__':
 		mail_list = my_ol.find_mail(my_subfolder, r"ftp")
 
 	print "DEBUG mail_list = ",mail_list
+##########start_monitor()############
 
+if __name__ == '__main__':
+
+	'''
+	my_ol = My_Outlook()
+	my_subfolder = my_ol.find_subfolder("inbox")
+	print 'DEBUG my_subfolder=',my_subfolder
+
+	TIME_POINT = '09/28/17 14:35:50'
+
+	mail_list = []
+	if my_subfolder:
+		mail_list = my_ol.find_mail(my_subfolder, r"ftp")
+
+	print "DEBUG mail_list = ",mail_list
+	'''
+
+	print "DEBUG1 thread name=", threading.currentThread().getName()
+	t = threading.Thread(target=start_monitor)
+	t.start()		
+	#t.join()
+	print "\nMain process continue.."
+	

@@ -11,6 +11,10 @@ import socket
 import threading
 import cPickle as pickle
 import collections
+import threading
+import read_olook
+import time
+import pythoncom 
 
 HOST = '135.242.80.16'
 PORT = '8080'
@@ -24,6 +28,11 @@ MAIL_KEYWORD = r'\d-\d{8}'
 #MAIL_KEYWORD = '1-6853088'
 MY_FTP = collections.namedtuple("MY_FTP",\
  "host port user pwd target_dir mail_keyword")
+
+
+MONITOR_THREADS = []
+MONITOR_STOP = True
+
 
 file_number = 0
 dir_number = 0
@@ -158,11 +167,11 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 
 	res = ftp_conn(host, port, acc, pwd)
 
+
 	if not res:
 		print "Error to logged in the %s" % host
-		showerror(title='Ftp Connect Error', \
-			message="Cannot accesst to %s" % host)
-		return 
+		print "DEBUG res=",res
+		return None
 
 
 	print "Waiting for calculate to total file number..."
@@ -237,10 +246,55 @@ class My_Ftp(object):
 		self.entry_ddirname = Entry(self.lframe_qconn, textvariabl=self.v_ddirname, width=40)
 		self.entry_ddirname.grid(row=2,column=1)
 
+		#Download button
 		self.button_qconn = Button(self.lframe_qconn,text="Direct dowload",\
-			width=20,command=self.thread_ftp)	
+			width=20, command=self.thread_ftp, activeforeground='white', \
+			activebackground='orange',bg = 'white', relief='raised')
 		self.button_qconn.grid(row=2,column=3)
 
+		#############Auto download###############
+		self.fm_up = Frame(self.lframe_autoconn)
+		s1 = "Enable 'Inbox' mail monitor function to automatically"
+		s2 = " "
+		s3 ="ftp download files based on mail title"
+		s = s1+s2+s3
+
+		self.v_chk = BooleanVar() 
+		self.chk_auto = Checkbutton(self.fm_up, text = s, variable = self.v_chk,\
+			command = self.periodical_check).pack()
+		self.label_mail = Label(self.fm_up, text = 'Mail Title Keyword:    ').pack(side=LEFT)
+		##########mail_keyword###########
+		self.v_mail = StringVar()
+		self.entry_mail = Entry(self.fm_up, textvariable=self.v_mail,width=32)
+		self.entry_mail.pack(side=LEFT)
+
+		self.label_blank0 = Label(self.fm_up,text= ' '*20).pack(side = 'left')
+		#button trigger monitor mails' titles
+		self.button_monitor = Button(self.fm_up, text="Start monitor", command=self.start_thread_monitor, activeforeground\
+			='white', activebackground='orange',bg = 'white', relief='raised', width=20)
+		#self.button_monitor = Button(self.fm_up,text="Start monitor",\
+			#width=20,command=self.start_thread_monitor).pack()	
+		self.button_monitor.pack()
+		self.fm_up.pack()
+
+
+		self.fm_down = Frame(self.lframe_autoconn)
+
+		self.label_new = Label(self.fm_down, \
+			text = " Monitored Dirname: ",justify='left').pack(side=LEFT)
+
+		self.v_new_dirname = StringVar()
+		print "DEBUG self.v_ddirname.get()=",self.v_ddirname.get()
+		self.label_new_dirname = Label(self.fm_down, \
+			textvariable=self.v_new_dirname,justify='left')
+		self.label_new_dirname.pack(side = 'left')
+
+		self.label_blank = Label(self.fm_down,text= ' '*18).pack(side = 'left')
+		self.label_new_dirname.pack(side = 'left')
+	
+		self.fm_down.pack(side='left')
+
+		self.pwindow_qconn.pack()
 
 		#######retrive data from disk#############:
 		data_bak = retrive_bak()
@@ -251,62 +305,18 @@ class My_Ftp(object):
 			self.v_user.set(data_bak.user)
 			self.v_pwd.set(data_bak.pwd)
 			self.v_ddirname.set(data_bak.target_dir)
+			self.v_mail.set(data_bak.mail_keyword)
 		else:
 			self.v_host.set(HOST)
 			self.v_port.set(PORT)
 			self.v_user.set(ACC)
 			self.v_pwd.set(PWD)
 			self.v_ddirname.set(DOWNLOAD_DIR)	
+			self.v_mail.set(MAIL_KEYWORD)
 			print "DEBUG data_bak is NONE!!!"
 		#######retrive data from disk#############:
-
-
-		#############Auto download###############
-		self.fm_up = Frame(self.lframe_autoconn)
-
-
-
-		s1 = "Enable mail fiter function to automatically"
-		s2 = ""
-		s3 ="ftp download logs according to specific mail subject"
-		s = s1+s2+s3
-
-		self.v_chk = BooleanVar() 
-		self.chk_auto = Checkbutton(self.fm_up, text = s, variable = self.v_chk,\
-			command = self.periodical_check).pack()
-		self.label_mail = Label(self.fm_up, text = 'Keyword in Mail subject: ').pack(side=LEFT)
-		self.v_mail = StringVar()
-		self.entry_mail = Entry(self.fm_up, textvariable=self.v_mail,width=30)
-		self.entry_mail.pack(side=LEFT)
-
-		self.fm_up.pack()
-
-
-		self.fm_down = Frame(self.lframe_autoconn)
-
-		self.label_new = Label(self.fm_down, \
-			text = "Auto Download Dirname:",justify='left').pack(side=LEFT)
-
-		self.v_new_dirname = StringVar()
-		print "DEBUG self.v_ddirname.get()=",self.v_ddirname.get()
-		self.v_new_dirname.set(self.v_ddirname.get())
-		self.label_new_dirname = Label(self.fm_down, \
-			textvariable=self.v_new_dirname,justify='left')
-		self.label_new_dirname.pack(side = 'left')
-
-		self.label_blank = Label(self.fm_down,text= ' '*12).pack(side = 'left')
-		self.label_new_dirname.pack(side = 'left')
-		self.button_start_auto_download = Button(self.fm_down,text="Start Monitor",\
-			width=20,command=self.start_monitor).pack()		
-
-		self.fm_down.pack(side='left')
-
-
-
-
-		self.pwindow_qconn.pack()
-
-
+		print "DEBUG v_ddirname=",self.v_ddirname.get()
+		self.v_new_dirname.set(self.v_ddirname.get() +'/' +'*'+ self.v_mail.get()+'*')
 
 		##############init()###############
 
@@ -339,13 +349,96 @@ class My_Ftp(object):
 		if self.v_ddirname.get():
 			DOWNLOAD_DIR = self.v_ddirname.get()
 
-		my_download(HOST, PORT, ACC, PWD, SAVE_DIR, DOWNLOAD_DIR)
+		res = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, DOWNLOAD_DIR)
+
+		if not res:
+			print "DEBUG cannot access"
+			#crash
+			#showerror(title='Ftp Connect Error', message="Cannot accesst to %s" % HOST)
+		else:
+			print "DEBUG downloaded success in file %s" % res
+
 
 		self.button_qconn.config(text="Direct download",bg='white',relief='raised',state='normal')
 	##############direct_download()##################
 
-	def start_monitor(self):
-		pass
+
+	def start_monitor(self, mail_keyword):
+
+		pythoncom.CoInitialize() 
+
+
+
+		try:
+			my_ol = read_olook.My_Outlook()
+			print "debug my_outlook.count =",my_ol.my_outlook.Count
+		except Exception as e:
+			print "debug outlook initialization failed, e:", e
+			return
+
+		print "DEBUG start_monitor"
+		print "DEBUG my_ol=",my_ol
+		my_subfolder = my_ol.find_subfolder("inbox")
+		re_rule = re.compile(mail_keyword, re.I)
+
+		if my_subfolder:
+			print 'DEBUG start periodical monitor task'
+			while 1:
+				mail_title_list = []
+				mail_title_list = my_ol.find_mail(my_subfolder, mail_keyword)
+				print "Debug conaining keywords {0} mails found:{1}"\
+				.format(mail_keyword,mail_title_list)
+
+				#download start
+				if mail_title_list:
+
+					for mail_title in mail_title_list:
+						new_dirname = os.path.join\
+						(DOWNLOAD_DIR, re_rule.search(mail_title).group(0))
+
+						save_dir = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, new_dirname)
+						if save_dir:
+							if True:
+								#send to auto search
+								pass
+						else:
+							print "DEBUG download failed"
+				time.sleep(10)
+				print "DEBUG after 10 seconds,continue monitor"
+				print "DEBUG MONITOR_STOP=",MONITOR_STOP
+
+				if MONITOR_STOP:
+					break
+		print "Debug CoUninitialize()"
+		pythoncom.CoUninitialize()
+		print "Debug CoUninitialize()"
+		self.button_monitor.config(text="Start monitor",bg='white',relief='raised',state='normal')
+
+	#############start_monitor()#############
+
+
+	def start_thread_monitor(self):
+
+		global MAIL_KEYWORD
+		global MONITOR_STOP
+
+		if self.v_mail.get():
+			MAIL_KEYWORD = self.v_mail.get()
+
+		self.button_monitor.config(text="Click to stop",bg='orange', relief='sunken',state='normal')
+
+		if MONITOR_STOP:
+			MONITOR_STOP = False
+
+			t = threading.Thread(target=self.start_monitor, args=(MAIL_KEYWORD,))
+			#for terminating purpose
+			MONITOR_THREADS.append(t)
+			t.start()	
+		else:
+			MONITOR_STOP = True
+			self.button_monitor.config(text="Stopping..",bg='orange', relief='sunken',state='disable')
+	############start_thread_monitor()#############
+
 
 	def periodical_check(self):
 		if self.v_chk.get() == 1:
@@ -360,6 +453,7 @@ class My_Ftp(object):
 		global ACC
 		global PWD
 		global DOWNLOAD_DIR
+		global MAIL_KEYWORD
 
 		if askyesno("Tip","Save or not?"):
 			#save
