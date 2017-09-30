@@ -33,6 +33,7 @@ MY_FTP = collections.namedtuple("MY_FTP",\
 MONITOR_THREADS = []
 MONITOR_STOP = True
 
+DOWNLOADER_ICON = os.path.join(os.path.join(SAVE_DIR, "resource"),'mail.ico')
 
 file_number = 0
 dir_number = 0
@@ -200,8 +201,8 @@ class My_Ftp(object):
 		self.ftp_top = Toplevel(parent_top)
 		self.ftp_top.title("Ftp_Downloader")
 		self.ftp_top.geometry('600x300+300+220')
-		#self.ftp_top.iconbitmap(icon_path)
-		self.ftp_top.attributes("-toolwindow", 1)
+		self.ftp_top.iconbitmap(DOWNLOADER_ICON)
+		#self.ftp_top.attributes("-toolwindow", 1)
 		#self.ftp_top.wm_attributes('-topmost',1)
 		self.ftp_top.protocol("WM_DELETE_WINDOW",lambda :self.ask_quit(self.ftp_top))
 
@@ -274,11 +275,9 @@ class My_Ftp(object):
 		#self.button_monitor = Button(self.fm_up,text="Start monitor",\
 			#width=20,command=self.start_thread_monitor).pack()	
 		self.button_monitor.pack()
-		self.fm_up.pack()
 
 
 		self.fm_down = Frame(self.lframe_autoconn)
-
 		self.label_new = Label(self.fm_down, \
 			text = "New Dirname: ",justify='left').pack(side=LEFT)
 
@@ -290,6 +289,8 @@ class My_Ftp(object):
 		self.label_blank = Label(self.fm_down,text= ' '*18).pack(side = 'left')
 		self.label_new_dirname.pack(side = 'left')
 	
+		self.label_blank10 = Label(self.fm_down,text= ' '*20).pack()
+		self.fm_up.pack()
 		self.fm_down.pack(side='left')
 
 		self.pwindow_qconn.pack()
