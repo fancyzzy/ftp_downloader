@@ -66,10 +66,9 @@ def save_bak():
 
 
 def retrive_bak():
+	printl('\n'+read_olook.TIME_POINT)
 	try:
 		data_bak = pickle.load(open(DATA_BAK, "rb"))
-
-		printl('\n'+read_olook.TIME_POINT)
 		printl("Retrive data_bak:{}".format(data_bak))
 
 		HOST = data_bak.host
