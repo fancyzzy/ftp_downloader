@@ -8,9 +8,10 @@ import threading
 MAPI = Dispatch("Outlook.Application").GetNamespace("MAPI")
 #print "DEBUG 6= ",MAPI.GetDefaultFolder(6)
 import pythoncom
+from my_ftp import printl
 #New mails are to be checked after this time point
 TIME_POINT = time.strftime('%m/%d/%y %H:%M:%S',time.localtime(time.time()))
-#print "type TIME_POINT=",type(TIME_POINT)
+#print("type TIME_POINT=",type(TIME_POINT))
 #format as str '09/29/17 14:35:50'
 
 
@@ -43,7 +44,7 @@ class My_Outlook():
 
 
 	def find_subfolder(self, subfolder_name):
-		print "Find_folder starts"
+		printl("Find_folder starts")
 
 		array_size = self.my_outlook.Count
 		re_rule = re.compile(subfolder_name, re.I)
@@ -52,8 +53,8 @@ class My_Outlook():
 			#print "Mail folder: ", folder.Name
 			for subfolder in folder.Folders:
 				if re_rule.search(subfolder.Name):
-					print "Find folder! '{0}'" .format(subfolder.Name)
-					print "Mail account: ", folder.Name
+					printl("Find folder! '{0}'" .format(subfolder.Name))
+					printl("Mail account: %s"% folder.Name)
 					return subfolder
 				else:
 					continue
@@ -64,7 +65,7 @@ class My_Outlook():
 	def find_mail(self, subfolder, mail_subject_keyword):
 		global TIME_POINT
 
-		print 'Start find new mails...'
+		printl('Start find new mails...')
 
 		mail_number = subfolder.Items.Count
 
@@ -75,24 +76,24 @@ class My_Outlook():
 		#print "DEBUG strtime_latest_mail {0} > TIME_POINT {1}".format(strtime_latest_mail, TIME_POINT)
 
 		if not st_comp(strtime_latest_mail, TIME_POINT):
-			print "No new mail.."
+			printl("No new mail..")
 			return mail_list
 
 		re_rule = re.compile(mail_subject_keyword, re.I)
 
-		print "There are new mails received after this time point",TIME_POINT
+		printl("There are new mails received after this time point %s"%TIME_POINT)
 		for i in range(mail_number, 0, -1):
 			strtime_rcv = str(subfolder.Items.Item(i).SentOn)
 			subject = subfolder.Items.Item(i).Subject
 			if st_comp(strtime_rcv, TIME_POINT):
-				print "New mail Date:[%s], subject:[%s]" % (strtime_rcv, subject)
+				printl("New mail Date:[%s], subject:[%s]" % (strtime_rcv, subject))
 				if re_rule.search(subject):
-					print "Keyword match!"
+					printl("Keyword match!")
 					mail_list.append(subject)
 				else:
-					print "Keyword not match..."
+					printl("Keyword not match...")
 			else:
-				print "No more new mails, find new mail finished"
+				printl("No more new mails, find new mail finished")
 				break
 
 		#update time to the checked latest mail's
@@ -119,7 +120,7 @@ def test_start_monitor():
 	if my_subfolder:
 		mail_list = my_ol.find_mail(my_subfolder, r"1-6853088")
 
-	print "DEBUG mail_list = ",mail_list
+	print("DEBUG mail_list = {}".format(mail_list))
 ##########test_start_monitor()############
 
 

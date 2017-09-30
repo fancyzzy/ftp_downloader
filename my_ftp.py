@@ -40,9 +40,27 @@ dir_number = 0
 downloaded_number = 0
 
 
+LOG_FILE = os.path.join(SAVE_DIR, 'my_ftp.log')
+
+def printl(s):
+	global LOG_FILE
+
+	print s
+	#print "type(s)=",type(s)
+	if 'unicode' in str(type(s)):
+		s = s.encode('utf-8')
+		
+	try:
+		with open(LOG_FILE, 'a') as fobj:
+			fobj.write(s + '\n')
+	except Exception as e:
+		print "DEBUG wirte failed, e:",e
+#########recode_log()#######################
+
+
 def save_bak():
 	data_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR, MAIL_KEYWORD)
-	print "Save data_bak: ", data_bak
+	printl("Save data_bak: %s" % data_bak)
 	pickle.dump(data_bak, open(DATA_BAK,"wb"), True)
 ############save_bak()#####################
 
@@ -51,7 +69,9 @@ def retrive_bak():
 	try:
 		data_bak = pickle.load(open(DATA_BAK, "rb"))
 
-		print "Retrive data_bak: ",data_bak
+		printl('\n'+read_olook.TIME_POINT)
+		printl("Retrive data_bak:{}".format(data_bak))
+
 		HOST = data_bak.host
 		PORT = data_bak.port
 		ACC = data_bak.user
@@ -59,10 +79,10 @@ def retrive_bak():
 		DOWNLOAD_DIR = data_bak.target_dir
 
 	except Exception as e:
-		print "ERROR occure, e=",e
+		printl("ERROR occure, e= %s" %e)
 
 	else:
-		print "Retrive success!\n"
+		printl("Retrive success!\n")
 		return data_bak	
 	return None
 ############retrive_bak()###################
@@ -75,17 +95,17 @@ def ftp_conn(host, port, acc, pwd):
 		CONN = ftplib.FTP()
 		CONN.connect(host, port)
 	except (socket.error, socket.gaierror), e:
-		print 'ERROR: cannot reach "%s"' % HOST
+		printl('ERROR: cannot reach "%s"' % HOST)
 		return False
-	print '*** Connected to host "%s"'% HOST
+	printl('*** Connected to host "%s"'% HOST)
 
 	try:
 		CONN.login(acc, pwd)
 	except ftplib.error_perm:
-		print 'ERROR: cannot login as "%s"' % ACC
+		printl('ERROR: cannot login as "%s"' % ACC)
 		f.quit()
 		return False
-	print '*** Logged in as "%s"' % ACC
+	printl('*** Logged in as "%s"' % ACC)
 
 	return True
 ############ftp_conn()#####################
@@ -97,9 +117,9 @@ def ftp_download_dir(dirname):
 	try:
 		CONN.cwd(dirname)
 	except ftplib.error_perm:
-		print 'ERROR: cannot cd to "%s"' % dirname
+		printl('ERROR: cannot cd to "%s"' % dirname)
 	else:
-		#print("change diretocry into %s..." %dirname)
+		#printl("change diretocry into %s..." %dirname)
 		new_dir = os.path.basename(dirname)
 		if not os.path.exists(new_dir):
 			os.mkdir(new_dir)
@@ -120,11 +140,11 @@ def ftp_download_dir(dirname):
 					CONN.retrbinary('RETR %s' % filelines_bk[i], \
 						open(filelines_bk[i], 'wb').write)
 				except ftplib.error_perm:
-					print 'ERROR: cannot read file "%s"' % FILE
+					printl('ERROR: cannot read file "%s"' % FILE)
 					os.unlink(FILE)
 				else:
 					downloaded_number += 1
-					print("File %s has been downloaded!" % filelines_bk[i])
+					printl("File %s has been downloaded!" % filelines_bk[i])
 			i += 1
 ##################download_dir()###############
 
@@ -136,7 +156,7 @@ def get_file_number(dirname):
 	try:
 		CONN.cwd(dirname)
 	except ftplib.error_perm:
-		print 'ERROR: cannot cd to "%s"' % dirname
+		printl('ERROR: cannot cd to "%s"' % dirname)
 	else:
 		new_dir = os.path.basename(dirname)
 		if not os.path.exists(new_dir):
@@ -165,25 +185,25 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	global CONN
 	os.chdir(save_dir)
 
-	print 'Start ftp download'
-	print "host:{0},port:{1},acc:{2},pwd:{3},target:{4}".format(\
-		host,port,acc,pwd,download_dir)
+	printl('Start ftp download')
+	printl("host:{0},port:{1},acc:{2},pwd:{3},target:{4}".format(\
+		host,port,acc,pwd,download_dir))
 	res = ftp_conn(host, port, acc, pwd)
 
 
 	if not res:
-		print "Error to logged in the %s" % host
+		printl("Error to logged in the %s" % host)
 		return None
 
 
-	print "Waiting for calculate to total file number..."
+	printl("Waiting for calculate to total file number...")
 	m,n = get_file_number(download_dir)
-	print "Total %d files, %d folders to be downloaded" % (n, m)
+	printl("Total %d files, %d folders to be downloaded" % (n, m))
 	ftp_download_dir(download_dir)
 	CONN.quit()
 
 	if n == downloaded_number:
-		print "All files have been downloaded successfully!"	
+		printl("All files have been downloaded successfully!")
 
 	return os.path.join(save_dir,os.path.basename(download_dir))
 #############my_download()########
@@ -315,6 +335,12 @@ class My_Ftp(object):
 		#######retrive data from disk#############:
 		self.v_new_dirname.set(self.v_ddirname.get() +'/'+ self.v_mail.get())
 		self.periodical_check()
+
+		'''
+		self.v_tip = StringVar()
+		self.v_tip.set("Not Start")
+		self.label_tip = Label(self.ftp_top, textvariable=self.v_tip,justify='left').pack()
+		'''
 		##############init()###############
 
 
@@ -334,7 +360,7 @@ class My_Ftp(object):
 		global ACC
 		global PWD
 		global DOWNLOAD_DIR
-		print "Direct_download starts"
+		printl("Direct_download starts")
 
 		if self.v_host.get():
 			HOST = self.v_host.get()
@@ -350,11 +376,11 @@ class My_Ftp(object):
 		res = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, DOWNLOAD_DIR)
 
 		if not res:
-			print "DEBUG cannot access"
+			printl("DEBUG cannot access")
 			#crash
 			#showerror(title='Ftp Connect Error', message="Cannot accesst to %s" % HOST)
 		else:
-			print "Downloaded success and saved in dir: %s" % res
+			printl("Downloaded success and saved in dir: %s" % res)
 
 		self.button_qconn.config(text="Direct download",bg='white',relief='raised',state='normal')
 	##############direct_download()##################
@@ -369,15 +395,15 @@ class My_Ftp(object):
 		try:
 			my_ol = read_olook.My_Outlook()
 		except Exception as e:
-			print "Debug outlook initialization failed, e:", e
+			printl("Debug outlook initialization failed, e: %s"% e)
 			return
 
-		print "Start_monitor"
+		printl("Start_monitor")
 		my_subfolder = my_ol.find_subfolder(find_folder)
 		re_rule = re.compile(mail_keyword, re.I)
 
 		if my_subfolder:
-			print 'Start monitor...'
+			printl('Start monitor...')
 			while 1:
 				mail_title_list = []
 				mail_title_list = my_ol.find_mail(my_subfolder, mail_keyword)
@@ -393,15 +419,15 @@ class My_Ftp(object):
 								#send to auto search
 								pass
 						else:
-							print "Download failed"
+							printl("Download failed")
 				time.sleep(interval_time)
-				print "%d seconds interval.." % interval_time
+				printl("%d seconds interval.." % interval_time)
 
 				if MONITOR_STOP:
-					print "Monitor stopped"
+					printl("Monitor stopped")
 					break
 		else:
-			print "Error, no such folder:", find_folder	
+			printl("Error, no such folder: %s" % find_folder)
 		pythoncom.CoUninitialize()
 		self.button_monitor.config(text="Start monitor",bg='white',relief='raised',state='normal')
 	#############start_monitor()#############
@@ -433,7 +459,7 @@ class My_Ftp(object):
 
 	def periodical_check(self):
 		if self.v_chk.get() == 1:
-			print "periodical check started!"
+			printl("periodical check started!")
 			self.entry_mail.config(state='normal')
 			self.button_monitor.config(state='normal')
 			#self.label_mail.config(state='normal')
