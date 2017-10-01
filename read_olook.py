@@ -8,7 +8,8 @@ import threading
 MAPI = Dispatch("Outlook.Application").GetNamespace("MAPI")
 #print "DEBUG 6= ",MAPI.GetDefaultFolder(6)
 import pythoncom
-from my_ftp import printl
+from log_reserve import printl
+
 #New mails are to be checked after this time point
 TIME_POINT = time.strftime('%m/%d/%y %H:%M:%S',time.localtime(time.time()))
 #print("type TIME_POINT=",type(TIME_POINT))
