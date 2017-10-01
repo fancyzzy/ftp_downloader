@@ -5,7 +5,6 @@ from Tkinter import *
 import ttk
 from tkMessageBox import *
 
-
 import ftplib
 import os
 import socket
@@ -13,12 +12,9 @@ import threading
 import cPickle as pickle
 import collections
 import threading
-import Queue
 import read_olook
-from log_reserve import *
 import time
 import pythoncom 
-
 
 HOST = '135.242.80.16'
 PORT = '8080'
@@ -43,8 +39,23 @@ file_number = 0
 dir_number = 0
 downloaded_number = 0
 
-ASK_QUIT = False
 
+LOG_FILE = os.path.join(SAVE_DIR, 'my_ftp.log')
+
+def printl(s):
+	global LOG_FILE
+
+	print s
+	#print "type(s)=",type(s)
+	if 'unicode' in str(type(s)):
+		s = s.encode('utf-8')
+		
+	try:
+		with open(LOG_FILE, 'a') as fobj:
+			fobj.write(s + '\n')
+	except Exception as e:
+		print "DEBUG wirte failed, e:",e
+#########recode_log()#######################
 
 
 def save_bak():
@@ -74,6 +85,7 @@ def retrive_bak():
 		return data_bak	
 	return None
 ############retrive_bak()###################
+
 
 
 def ftp_conn(host, port, acc, pwd):
@@ -302,13 +314,6 @@ class My_Ftp(object):
 
 		self.pwindow_qconn.pack()
 
-		#progress bar
-		#self.pbar_tip = ttk.Progressbar(self.ftp_top, orient=HORIZONTAL, length=30,mode='indeterminate')
-		#self.pbar_tip.pack(side=LEFT)
-		self.label_blank11 = Label(self.ftp_top,text= '  '*3).pack(side=LEFT)
-		self.v_tip = StringVar()
-		self.label_tip = Label(self.ftp_top,textvariable=self.v_tip).pack(side=LEFT)
-
 		#######retrive data from disk#############:
 		data_bak = retrive_bak()
 		if data_bak:
@@ -330,35 +335,12 @@ class My_Ftp(object):
 		self.v_new_dirname.set(self.v_ddirname.get() +'/'+ self.v_mail.get())
 		self.periodical_check()
 
-		self.t_tip = threading.Thread(target=self.start_progress_tip)
-		self.t_tip.start()
-
-
+		'''
+		self.v_tip = StringVar()
+		self.v_tip.set("Not Start")
+		self.label_tip = Label(self.ftp_top, textvariable=self.v_tip,justify='left').pack()
+		'''
 		##############init()###############
-
-	def start_progress_tip(self):
-		global FTP_TIP_QUE 
-		global ASK_QUIT
-
-		print "start_progress_tip begin!"
-		while 1:
-			try:
-				s = FTP_TIP_QUE.get(False)
-				self.v_tip.set(s)
-				#print "**** get s=",s
-				#print "**** after get quesize = ",FTP_TIP_QUE.qsize()
-			except Exception as e:
-				#print("queue is empty, e %s" % e)
-				pass
-
-			time.sleep(0.4)
-
-			if ASK_QUIT and FTP_TIP_QUE.empty():
-				self.v_tip.set("Exited..")
-				break
-		print "start_progress_tip done!"
-
-	########start_progess_tip###########
 
 
 	def thread_ftp(self):
@@ -406,7 +388,7 @@ class My_Ftp(object):
 	def start_monitor(self, mail_keyword):
 
 		pythoncom.CoInitialize() 
-		interval_time = 6
+		interval_time = 10
 
 		find_folder = "inbox"
 		try:
@@ -500,8 +482,6 @@ class My_Ftp(object):
 		global DOWNLOAD_DIR
 		global MAIL_KEYWORD
 
-		global ASK_QUIT
-
 		if askyesno("Tip","Save or not?"):
 			#save
 			HOST = self.v_host.get()
@@ -512,10 +492,10 @@ class My_Ftp(object):
 			MAIL_KEYWORD = self.v_mail.get()
 
 			save_bak()
+
 		else:
 			pass
 
-		ASK_QUIT = True
 		top.quit()
 
 	###########init()##############		
