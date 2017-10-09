@@ -7,7 +7,6 @@ import time
 
 LOG_FILE = os.path.join(os.getcwd(), 'my_ftp.log')
 FTP_TIP_QUE = Queue.Queue()
-print 'DEBUG FTP_TIP_QUE is created with id', id(FTP_TIP_QUE)
 
 def printl(s):
 	global LOG_FILE
@@ -18,8 +17,6 @@ def printl(s):
 
 	FTP_TIP_QUE.put(s)
 	print(s)
-	#print ">>>after put s, mail size=",FTP_TIP_QUE.qsize()
-	#time.sleep(0.4)
 
 	try:
 		with open(LOG_FILE, 'a') as fobj:

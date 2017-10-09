@@ -5,7 +5,7 @@ from win32com.client.gencache import EnsureDispatch as Dispatch
 import re
 import time
 import threading
-MAPI = Dispatch("Outlook.Application").GetNamespace("MAPI")
+#MAPI = Dispatch("Outlook.Application").GetNamespace("MAPI")
 #print "DEBUG 6= ",MAPI.GetDefaultFolder(6)
 import pythoncom
 from log_reserve import printl
@@ -111,7 +111,7 @@ def test_start_monitor():
 	global TIME_POINT
 
 	pythoncom.CoInitialize() 
-
+	
 	my_ol = My_Outlook()
 	my_subfolder = my_ol.find_subfolder("inbox")
 

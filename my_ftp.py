@@ -5,7 +5,6 @@ from Tkinter import *
 import ttk
 from tkMessageBox import *
 
-
 import ftplib
 import os
 import socket
@@ -23,7 +22,7 @@ import pythoncom
 HOST = '135.242.80.16'
 PORT = '8080'
 DOWNLOAD_DIR = '/01_Training/02_PMU/02_Documents'
-ACC = 'QD-BSC'
+ACC = 'QD-BSC2'
 PWD = 'qdBSC#1234'
 SAVE_DIR = os.getcwd()
 CONN = None
@@ -78,21 +77,25 @@ def retrive_bak():
 
 def ftp_conn(host, port, acc, pwd):
 	global CONN
+
+	printl('Ftp connecting start, host:{0}, port:{1}, acc:{2}, pwd:{3}'\
+		.format(host,port,acc,pwd))
+
 	try:
 		CONN = ftplib.FTP()
 		CONN.connect(host, port)
 	except (socket.error, socket.gaierror), e:
-		printl('ERROR: cannot reach "%s"' % HOST)
+		printl('ERROR: cannot reach host "%s", exited.' % host)
 		return False
-	printl('*** Connected to host "%s"'% HOST)
+	printl('*** Successfully connected to host "%s"'% host)
 
 	try:
 		CONN.login(acc, pwd)
 	except ftplib.error_perm:
-		printl('ERROR: cannot login as "%s"' % ACC)
-		f.quit()
+		printl('ERROR: cannot login as "%s", exited.' % acc)
+		CONN.quit()
 		return False
-	printl('*** Logged in as "%s"' % ACC)
+	printl('*** Successfully logged in as "%s"' % acc)
 
 	return True
 ############ftp_conn()#####################
@@ -101,6 +104,7 @@ def ftp_conn(host, port, acc, pwd):
 def ftp_download_dir(dirname):
 	global downloaded_number
 
+	printl('Download start, dirname = %s' % dirname)
 	try:
 		CONN.cwd(dirname)
 	except ftplib.error_perm:
@@ -108,16 +112,24 @@ def ftp_download_dir(dirname):
 	else:
 		#printl("change diretocry into %s..." %dirname)
 		new_dir = os.path.basename(dirname)
+		print("DEBUG new_dir =",new_dir)
+		print("DEBUG current dir = ",os.getcwd())
 		if not os.path.exists(new_dir):
 			os.mkdir(new_dir)
+			print('debug new_dir has been created')
+
 		os.chdir(new_dir)
 
 		filelines = []
 		CONN.dir(filelines.append)
 		filelines_bk = CONN.nlst()
+		#print("DEBUG filelines = ",filelines)
+		#print("DEBUG filelines_bk = ",filelines_bk)
 		i = 0
 		for file in filelines:
-			if '<DIR>' in file:
+			print('DEBUG file=', file)
+			#<DIR> display in widows and dxxx in linux
+			if '<DIR>' in file or file.startswith('d'):
 				ftp_download_dir(filelines_bk[i])
 				CONN.cwd('..')
 				os.chdir('..')
@@ -127,8 +139,8 @@ def ftp_download_dir(dirname):
 					CONN.retrbinary('RETR %s' % filelines_bk[i], \
 						open(filelines_bk[i], 'wb').write)
 				except ftplib.error_perm:
-					printl('ERROR: cannot read file "%s"' % FILE)
-					os.unlink(FILE)
+					printl('ERROR: cannot read file "%s"' % file)
+					os.unlink(file)
 				else:
 					downloaded_number += 1
 					printl("File %s has been downloaded!" % filelines_bk[i])
@@ -172,18 +184,10 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	global CONN
 	os.chdir(save_dir)
 
-	printl('Start ftp download')
-	printl("host:{0},port:{1},acc:{2},pwd:{3},target:{4}".format(\
-		host,port,acc,pwd,download_dir))
-	res = ftp_conn(host, port, acc, pwd)
-
-
-	if not res:
-		printl("Error to logged in the %s" % host)
+	if not ftp_conn(host, port, acc, pwd):
 		return None
 
-
-	printl("Waiting for calculate to total file number...")
+	printl("Calculating the download files number...")
 	m,n = get_file_number(download_dir)
 	printl("Total %d files, %d folders to be downloaded" % (n, m))
 	ftp_download_dir(download_dir)
@@ -194,6 +198,41 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 
 	return os.path.join(save_dir,os.path.basename(download_dir))
 #############my_download()########
+
+
+def ftp_upload_file(file_path, remote_path):
+	global CONN	
+
+	printl('Ftp upload start, file_name:{0}, destination:{1}'\
+		.format(file_path,remote_path))
+
+	bufsize = 1024
+	fp = open(file_path, 'rb')
+
+	try:
+		CONN.storbinary('STOR ' + remote_path, fp, bufsize)
+	except Exception as e:
+		printl("error when uploading, e={}".format(e))
+		return False
+
+	fp.close()
+	return True
+##################ftp_upload_file()###############
+
+
+def my_upload(host, port, acc, pwd, file_path, remote_path):
+	global CONN
+
+	if not ftp_conn(host, port, acc, pwd):
+		return False
+
+	if not ftp_upload_file(file_path, remote_path):
+		printl('Upload error, exited')
+	else:
+		printl("Upload successfully!")
+
+	return True
+#####################my_upload()###################
 
 
 class My_Ftp(object):
@@ -345,8 +384,6 @@ class My_Ftp(object):
 			try:
 				s = FTP_TIP_QUE.get(False)
 				self.v_tip.set(s)
-				#print "**** get s=",s
-				#print "**** after get quesize = ",FTP_TIP_QUE.qsize()
 			except Exception as e:
 				#print("queue is empty, e %s" % e)
 				pass
@@ -534,4 +571,18 @@ if __name__ == '__main__':
 
 	ftp_top = My_Ftp(test_top)
 	test_top.mainloop()
+
+
+	#upload test
+	'''
+	host = '135.242.80.37'
+	port = '21'
+	acc = 'mxswing'
+	pwd = 'mxswing'
+	#file_path = r'C:\Users\tarzonz\Desktop\my_ftp.log'
+	file_path = 'my_ftp.log'
+
+	remote_path = '/sharing_folder_37/SLA_History/my_ftp.log'
+	my_upload(host, port, acc, pwd, file_path, remote_path)
+	'''
 
