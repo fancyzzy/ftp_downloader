@@ -4,6 +4,7 @@
 import Queue
 import os
 import time
+from datetime import datetime
 
 LOG_FILE = os.path.join(os.getcwd(), 'my_ftp.log')
 FTP_TIP_QUE = Queue.Queue()
@@ -18,9 +19,11 @@ def printl(s):
 	FTP_TIP_QUE.put(s)
 	print(s)
 
+	time_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
 	try:
 		with open(LOG_FILE, 'a') as fobj:
-			fobj.write(s + '\n')
+			fobj.write(time_now + ' ' + s + '\n')
 	except Exception as e:
 		print "DEBUG wirte failed, e:",e
 #########recode_log()#######################

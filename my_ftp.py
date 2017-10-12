@@ -54,7 +54,7 @@ def save_bak():
 
 
 def retrive_bak():
-	printl('\n'+read_olook.TIME_POINT)
+	printl('my_ftp start')
 	try:
 		data_bak = pickle.load(open(DATA_BAK, "rb"))
 		printl("Retrive data_bak:{}".format(data_bak))
@@ -69,7 +69,7 @@ def retrive_bak():
 		printl("ERROR occure, e= %s" %e)
 
 	else:
-		printl("Retrive success!\n")
+		printl("Retrive success!")
 		return data_bak	
 	return None
 ############retrive_bak()###################
@@ -194,7 +194,8 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	CONN.quit()
 
 	if n == downloaded_number:
-		printl("All files have been downloaded successfully!")
+		printl("All files in {} have been downloaded successfully!".\
+			format(download_dir))
 
 	return os.path.join(save_dir,os.path.basename(download_dir))
 #############my_download()########
@@ -229,7 +230,7 @@ def my_upload(host, port, acc, pwd, file_path, remote_path):
 	if not ftp_upload_file(file_path, remote_path):
 		printl('Upload error, exited')
 	else:
-		printl("Upload successfully!")
+		printl("Upload file {} successfully!".format(remote_path))
 
 	return True
 #####################my_upload()###################
@@ -553,6 +554,7 @@ class My_Ftp(object):
 			pass
 
 		ASK_QUIT = True
+		printl('my_ftp quited\n')
 		top.quit()
 
 	###########init()##############		
