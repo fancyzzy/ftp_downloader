@@ -35,6 +35,7 @@ MY_FTP = collections.namedtuple("MY_FTP",\
 
 MONITOR_THREADS = []
 MONITOR_STOP = True
+MONITOR_INTERVAL = 5
 
 DOWNLOADER_ICON = os.path.join(os.path.join(SAVE_DIR, "resource"),'mail.ico')
 
@@ -45,6 +46,7 @@ downloaded_number = 0
 ASK_QUIT = False
 
 
+FTP_THREADS = []
 
 def save_bak():
 	data_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR, MAIL_KEYWORD)
@@ -404,7 +406,7 @@ class My_Ftp(object):
 		self.button_qconn.config(text="Please wait",bg='orange',relief='sunken',state='disabled')
 
 		t = threading.Thread(target=self.direct_download)
-		#l_threads.append(t)
+		#FTP_THREADS.append(t)
 		t.start()
 	##########thread_ftp()###################
 	
@@ -443,8 +445,8 @@ class My_Ftp(object):
 
 	def start_monitor(self, mail_keyword):
 
+		global MONITOR_INTERVAL
 		pythoncom.CoInitialize() 
-		interval_time = 6
 
 		find_folder = "inbox"
 		try:
@@ -475,9 +477,10 @@ class My_Ftp(object):
 								pass
 						else:
 							printl("Download failed")
-				time.sleep(interval_time)
-				printl("%d seconds interval.." % interval_time)
+				time.sleep(MONITOR_INTERVAL)
+				printl("%d seconds interval.." % MONITOR_INTERVAL)
 
+				#stop monitoring
 				if MONITOR_STOP:
 					printl("Monitor stopped")
 					break
@@ -502,6 +505,7 @@ class My_Ftp(object):
 		if MONITOR_STOP:
 			MONITOR_STOP = False
 
+			#start a thread to do monitoring
 			t = threading.Thread(target=self.start_monitor, args=(MAIL_KEYWORD,))
 			#for terminating purpose
 			MONITOR_THREADS.append(t)
@@ -555,7 +559,10 @@ class My_Ftp(object):
 
 		ASK_QUIT = True
 		printl('my_ftp quited\n')
-		top.quit()
+		if __name__ == '__main__':
+			top.quit()
+		else:
+			top.destroy()
 
 	###########init()##############		
 
