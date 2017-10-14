@@ -33,9 +33,9 @@ MY_FTP = collections.namedtuple("MY_FTP",\
  "host port user pwd target_dir mail_keyword")
 
 
+AUTOANA_ENABLE = False
 MONITOR_THREADS = []
 MONITOR_STOP = True
-MONITOR_INTERVAL = 5
 
 DOWNLOADER_ICON = os.path.join(os.path.join(SAVE_DIR, "resource"),'mail.ico')
 
@@ -45,8 +45,8 @@ downloaded_number = 0
 
 ASK_QUIT = False
 
+FTP_FILE_QUE = Queue.Queue()
 
-FTP_THREADS = []
 
 def save_bak():
 	data_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR, MAIL_KEYWORD)
@@ -56,7 +56,7 @@ def save_bak():
 
 
 def retrive_bak():
-	printl('my_ftp start')
+	printl('\n'+read_olook.TIME_POINT)
 	try:
 		data_bak = pickle.load(open(DATA_BAK, "rb"))
 		printl("Retrive data_bak:{}".format(data_bak))
@@ -71,7 +71,7 @@ def retrive_bak():
 		printl("ERROR occure, e= %s" %e)
 
 	else:
-		printl("Retrive success!")
+		printl("Retrive success!\n")
 		return data_bak	
 	return None
 ############retrive_bak()###################
@@ -231,10 +231,10 @@ def my_upload(host, port, acc, pwd, file_path, remote_path):
 
 	if not ftp_upload_file(file_path, remote_path):
 		printl('Upload error, exited')
+		return False
 	else:
 		printl("Upload file {} successfully!".format(remote_path))
-
-	return True
+		return True
 #####################my_upload()###################
 
 
@@ -311,7 +311,8 @@ class My_Ftp(object):
 		self.v_chk = BooleanVar() 
 		self.chk_auto = Checkbutton(self.fm_up, text = s, variable = self.v_chk,\
 			command = self.periodical_check).pack()
-		self.label_mail = Label(self.fm_up, text = 'Mail Title Keyword:    ').pack(side=LEFT)
+		self.label_mail = Label(self.fm_up, text = 'Mail Title Keyword:    ')
+		self.label_mail.pack(side=LEFT)
 		##########mail_keyword###########
 		self.v_mail = StringVar()
 		self.entry_mail = Entry(self.fm_up, textvariable=self.v_mail,width=32)
@@ -319,26 +320,31 @@ class My_Ftp(object):
 
 		self.label_blank0 = Label(self.fm_up,text= ' '*20).pack(side = 'left')
 		#button trigger monitor mails' titles
-		self.button_monitor = Button(self.fm_up, text="Start monitor", command=self.start_thread_monitor, activeforeground\
-			='white', activebackground='orange',bg = 'white', relief='raised', width=20)
-		#self.button_monitor = Button(self.fm_up,text="Start monitor",\
-			#width=20,command=self.start_thread_monitor).pack()	
+		self.button_monitor = Button(self.fm_up, text="Start monitor",\
+		 command=self.start_thread_monitor, activeforeground\
+		='white', activebackground='orange',bg = 'white', relief='raised', width=20)
 		self.button_monitor.pack()
 
 
 		self.fm_down = Frame(self.lframe_autoconn)
 		self.label_new = Label(self.fm_down, \
-			text = "New Dirname: ",justify='left').pack(side=LEFT)
+			text = "New Dirname: ",justify='left')
+		self.label_new.pack(side=LEFT)
 
 		self.v_new_dirname = StringVar()
 		self.label_new_dirname = Label(self.fm_down, \
-			textvariable=self.v_new_dirname,justify='left')
+			textvariable=self.v_new_dirname, width = 40)
 		self.label_new_dirname.pack(side = 'left')
 
-		self.label_blank = Label(self.fm_down,text= ' '*18).pack(side = 'left')
-		self.label_new_dirname.pack(side = 'left')
-	
-		self.label_blank10 = Label(self.fm_down,text= ' '*20).pack()
+		Label(self.fm_down,text= ' '*15).pack(side = 'left')
+		self.label_interval = Label(self.fm_down,text= 'interval')
+		self.label_interval.pack(side = 'left')
+		self.v_interval = StringVar()
+		self.spin_interval = Spinbox(self.fm_down, \
+			textvariable=self.v_interval,width = 8, from_=1, to=8640,increment=1)
+		self.spin_interval.pack(side=LEFT)
+		self.v_interval.set('6')
+		#self.label_blank10 = Label(self.fm_down,text= ' '*0).pack()
 		self.fm_up.pack()
 		self.fm_down.pack(side='left')
 
@@ -406,7 +412,7 @@ class My_Ftp(object):
 		self.button_qconn.config(text="Please wait",bg='orange',relief='sunken',state='disabled')
 
 		t = threading.Thread(target=self.direct_download)
-		#FTP_THREADS.append(t)
+		#l_threads.append(t)
 		t.start()
 	##########thread_ftp()###################
 	
@@ -445,8 +451,9 @@ class My_Ftp(object):
 
 	def start_monitor(self, mail_keyword):
 
-		global MONITOR_INTERVAL
 		pythoncom.CoInitialize() 
+		interval_time = 10
+		interval_count = 0
 
 		find_folder = "inbox"
 		try:
@@ -466,21 +473,23 @@ class My_Ftp(object):
 				mail_title_list = my_ol.find_mail(my_subfolder, mail_keyword)
 
 				if mail_title_list:
+					#send mail to inform user
+					#the expected mail list
 					for mail_title in mail_title_list:
 						new_dirname = os.path.join\
 						(DOWNLOAD_DIR, re_rule.search(mail_title).group(0))
 
 						save_dir = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, new_dirname)
 						if save_dir:
-							if True:
+							if AUTOANA_ENABLE:
 								#send to auto search
-								pass
+								FTP_FILE_QUE.put(save_dir)
 						else:
 							printl("Download failed")
-				time.sleep(MONITOR_INTERVAL)
-				printl("%d seconds interval.." % MONITOR_INTERVAL)
+				time.sleep(int(self.v_interval.get()))
+				interval_count += 1
+				printl("%d seconds interval..count %d" % (int(self.v_interval.get()), interval_count))
 
-				#stop monitoring
 				if MONITOR_STOP:
 					printl("Monitor stopped")
 					break
@@ -505,7 +514,6 @@ class My_Ftp(object):
 		if MONITOR_STOP:
 			MONITOR_STOP = False
 
-			#start a thread to do monitoring
 			t = threading.Thread(target=self.start_monitor, args=(MAIL_KEYWORD,))
 			#for terminating purpose
 			MONITOR_THREADS.append(t)
@@ -517,24 +525,32 @@ class My_Ftp(object):
 
 
 	def periodical_check(self):
+		global AUTOANA_ENABLE
 		if self.v_chk.get() == 1:
-			printl("periodical check started!")
+			printl("periodical auto download and search enabled")
 			self.entry_mail.config(state='normal')
 			self.button_monitor.config(state='normal')
-			#self.label_mail.config(state='normal')
-			#self.label_new.config(state='normal')
+			self.label_mail.config(state='normal')
+			self.label_new.config(state='normal')
 			self.label_new_dirname.config(state='normal')
+			self.spin_interval.config(state='normal')
+			self.label_interval.config(state='normal')
+			AUTOANA_ENABLE = True
 
 		else:
+			printl("periodical auto download and search disabled")
 			self.entry_mail.config(state='disable')
 			self.button_monitor.config(state='disable')
-			#self.label_mail.config(state='disable')
-			#self.label_new.config(state='disable')
+			self.label_mail.config(state='disable')
+			self.label_new.config(state='disable')
 			self.label_new_dirname.config(state='disable')
+			self.spin_interval.config(state='disable')
+			self.label_interval.config(state='disable')
+			AUTOANA_ENABLE = False
 	########Periodical_check()#####################
 
 
-	def ask_quit(self, top):
+	def ask_quit(self, ftp_top):
 		global HOST
 		global PORT
 		global ACC
@@ -558,11 +574,12 @@ class My_Ftp(object):
 			pass
 
 		ASK_QUIT = True
-		printl('my_ftp quited\n')
 		if __name__ == '__main__':
-			top.quit()
+			#quit() all windows and parent window to be closed
+			ftp_top.quit()
 		else:
-			top.destroy()
+			#derstroy only this window
+			ftp_top.destroy()
 
 	###########init()##############		
 
