@@ -24,20 +24,23 @@ PORT = '8080'
 DOWNLOAD_DIR = '/01_Training/02_PMU/02_Documents'
 ACC = 'QD-BSC2'
 PWD = 'qdBSC#1234'
-SAVE_DIR = os.getcwd()
+SAVE_DIR = os.path.join(os.getcwd(),'ftp_download')
+if not os.path.exists(SAVE_DIR):
+	os.mkdir(SAVE_DIR)
 CONN = None
 DATA_BAK = os.path.join(SAVE_DIR, "my_ftp.pkl")
 MAIL_KEYWORD = r'\d-\d{7}\d*'
 #MAIL_KEYWORD = '1-6853088'
+MONITOR_INTERVAL = '6'
 MY_FTP = collections.namedtuple("MY_FTP",\
- "host port user pwd target_dir mail_keyword")
+ "host port user pwd target_dir mail_keyword interval")
 
 
 AUTOANA_ENABLE = False
 MONITOR_THREADS = []
 MONITOR_STOP = True
 
-DOWNLOADER_ICON = os.path.join(os.path.join(SAVE_DIR, "resource"),'mail.ico')
+DOWNLOADER_ICON = os.path.join(os.path.join(os.getcwd(), "resource"),'mail.ico')
 
 file_number = 0
 dir_number = 0
@@ -49,7 +52,7 @@ FTP_FILE_QUE = Queue.Queue()
 
 
 def save_bak():
-	data_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR, MAIL_KEYWORD)
+	data_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR, MAIL_KEYWORD, MONITOR_INTERVAL)
 	printl("Save data_bak: {}".format(data_bak))
 	pickle.dump(data_bak, open(DATA_BAK,"wb"), True)
 ############save_bak()#####################
@@ -66,6 +69,8 @@ def retrive_bak():
 		ACC = data_bak.user
 		PWD = data_bak.pwd
 		DOWNLOAD_DIR = data_bak.target_dir
+		MONITOR_INTERVAL = data_bak.interval
+		print("DEBUG retrive,MONITOR_INTERVAL=",MONITOR_INTERVAL)
 
 	except Exception as e:
 		printl("ERROR occure, e= %s" %e)
@@ -248,7 +253,7 @@ class My_Ftp(object):
 
 		self.parent_top = parent_top
 		self.ftp_top = Toplevel(parent_top)
-		self.ftp_top.title("Ftp_Downloader")
+		self.ftp_top.title("Outlook Monitor")
 		self.ftp_top.geometry('600x300+300+220')
 		self.ftp_top.iconbitmap(DOWNLOADER_ICON)
 		#self.ftp_top.attributes("-toolwindow", 1)
@@ -343,7 +348,8 @@ class My_Ftp(object):
 		self.spin_interval = Spinbox(self.fm_down, \
 			textvariable=self.v_interval,width = 8, from_=1, to=8640,increment=1)
 		self.spin_interval.pack(side=LEFT)
-		self.v_interval.set('6')
+		print("DEBUG set,MONITOR_INTERVAL=",MONITOR_INTERVAL)
+		self.v_interval.set(MONITOR_INTERVAL)
 		#self.label_blank10 = Label(self.fm_down,text= ' '*0).pack()
 		self.fm_up.pack()
 		self.fm_down.pack(side='left')
@@ -367,6 +373,7 @@ class My_Ftp(object):
 			self.v_pwd.set(data_bak.pwd)
 			self.v_ddirname.set(data_bak.target_dir)
 			self.v_mail.set(data_bak.mail_keyword)
+			self.v_interval.set(data_bak.interval)
 		else:
 			self.v_host.set(HOST)
 			self.v_port.set(PORT)
@@ -374,6 +381,7 @@ class My_Ftp(object):
 			self.v_pwd.set(PWD)
 			self.v_ddirname.set(DOWNLOAD_DIR)	
 			self.v_mail.set(MAIL_KEYWORD)
+			self.v_interval.set(MONITOR_INTERVAL)
 		#######retrive data from disk#############:
 		self.v_new_dirname.set(self.v_ddirname.get() +'/'+ self.v_mail.get())
 		self.periodical_check()
@@ -483,6 +491,7 @@ class My_Ftp(object):
 						if save_dir:
 							if AUTOANA_ENABLE:
 								#send to auto search
+								#test
 								FTP_FILE_QUE.put(save_dir)
 						else:
 							printl("Download failed")
@@ -557,6 +566,7 @@ class My_Ftp(object):
 		global PWD
 		global DOWNLOAD_DIR
 		global MAIL_KEYWORD
+		global MONITOR_INTERVAL
 
 		global ASK_QUIT
 
@@ -568,6 +578,7 @@ class My_Ftp(object):
 			PWD = self.v_pwd.get()
 			DOWNLOAD_DIR = self.v_ddirname.get()
 			MAIL_KEYWORD = self.v_mail.get()
+			MONITOR_INTERVAL = self.v_interval.get()
 
 			save_bak()
 		else:
