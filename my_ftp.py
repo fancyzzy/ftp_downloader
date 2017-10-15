@@ -189,10 +189,12 @@ def get_file_number(dirname):
 def my_download(host, port, acc, pwd, save_dir, download_dir):
 	global downloaded_number
 	global CONN
-	os.chdir(save_dir)
+
 
 	if not ftp_conn(host, port, acc, pwd):
 		return None
+
+	os.chdir(save_dir)
 
 	printl("Calculating the download files number...")
 	m,n = get_file_number(download_dir)
@@ -259,6 +261,7 @@ class My_Ftp(object):
 		#self.ftp_top.attributes("-toolwindow", 1)
 		#self.ftp_top.wm_attributes('-topmost',1)
 		self.ftp_top.protocol("WM_DELETE_WINDOW",lambda :self.ask_quit(self.ftp_top))
+		self.running = True
 
 		blank_label_1 = Label(self.ftp_top, text = '').pack()
 		self.pwindow_qconn = ttk.Panedwindow(self.ftp_top, orient=VERTICAL)
@@ -348,8 +351,6 @@ class My_Ftp(object):
 		self.spin_interval = Spinbox(self.fm_down, \
 			textvariable=self.v_interval,width = 8, from_=1, to=8640,increment=1)
 		self.spin_interval.pack(side=LEFT)
-		print("DEBUG set,MONITOR_INTERVAL=",MONITOR_INTERVAL)
-		self.v_interval.set(MONITOR_INTERVAL)
 		#self.label_blank10 = Label(self.fm_down,text= ' '*0).pack()
 		self.fm_up.pack()
 		self.fm_down.pack(side='left')
@@ -444,14 +445,15 @@ class My_Ftp(object):
 		if self.v_ddirname.get():
 			DOWNLOAD_DIR = self.v_ddirname.get()
 
-		res = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, DOWNLOAD_DIR)
+		saved_item_path = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, DOWNLOAD_DIR)
 
-		if not res:
+		if not saved_item_path:
 			printl("DEBUG cannot access")
 			#crash
 			#showerror(title='Ftp Connect Error', message="Cannot accesst to %s" % HOST)
 		else:
-			printl("Downloaded success and saved in dir: %s" % res)
+			printl("Downloaded success and saved in dir: %s" % \
+				saved_item_path)
 
 		self.button_qconn.config(text="Direct download",bg='white',relief='raised',state='normal')
 	##############direct_download()##################
@@ -474,6 +476,8 @@ class My_Ftp(object):
 		my_subfolder = my_ol.find_subfolder(find_folder)
 		re_rule = re.compile(mail_keyword, re.I)
 
+		saved_item_path = ''
+
 		if my_subfolder:
 			printl('Start monitor...')
 			while 1:
@@ -487,18 +491,24 @@ class My_Ftp(object):
 						new_dirname = os.path.join\
 						(DOWNLOAD_DIR, re_rule.search(mail_title).group(0))
 
-						save_dir = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, new_dirname)
-						if save_dir:
+						saved_item_path = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, new_dirname)
+						if saved_item_path:
 							if AUTOANA_ENABLE:
 								#send to auto search
-								#test
-								FTP_FILE_QUE.put(save_dir)
+								FTP_FILE_QUE.put(saved_item_path)
+								saved_item_path = ''
 						else:
 							printl("Download failed")
 				time.sleep(int(self.v_interval.get()))
 				interval_count += 1
 				printl("%d seconds interval..count %d" % (int(self.v_interval.get()), interval_count))
 
+				#test
+				if interval_count == 2:
+					print("Test start")
+					saved_item_path = r"C:\Users\tarzonz\Desktop\sss\ftp_download\1-6889375"
+					FTP_FILE_QUE.put(saved_item_path)
+					print("DEBUG quit monitor")
 				if MONITOR_STOP:
 					printl("Monitor stopped")
 					break
@@ -585,6 +595,7 @@ class My_Ftp(object):
 			pass
 
 		ASK_QUIT = True
+		self.running = False
 		if __name__ == '__main__':
 			#quit() all windows and parent window to be closed
 			ftp_top.quit()

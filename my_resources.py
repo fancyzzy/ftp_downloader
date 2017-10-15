@@ -143,7 +143,7 @@ def record_result(str_list, result_file = 'result.txt'):
 		s = time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))	
 		fobj.write("result of"+" " + s + '\r\n')
 		for str_line in str_list:
-			fobj.write(str_line)
+			fobj.write(str_line + '\r\n')
 	return
 #########record_result()####################
 
