@@ -190,11 +190,15 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	global downloaded_number
 	global CONN
 
+	os.chdir(save_dir)
+	#if this file had been downloaded, quit
+	if os.path.exsits(download_dir):
+		retrun None
+
 
 	if not ftp_conn(host, port, acc, pwd):
 		return None
 
-	os.chdir(save_dir)
 
 	printl("Calculating the download files number...")
 	m,n = get_file_number(download_dir)
@@ -448,7 +452,7 @@ class My_Ftp(object):
 		saved_item_path = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, DOWNLOAD_DIR)
 
 		if not saved_item_path:
-			printl("DEBUG cannot access")
+			printl("DEBUG cannot access or file already exists")
 			#crash
 			#showerror(title='Ftp Connect Error', message="Cannot accesst to %s" % HOST)
 		else:
