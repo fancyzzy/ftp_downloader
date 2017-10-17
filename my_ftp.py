@@ -193,7 +193,7 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	os.chdir(save_dir)
 	#if this file had been downloaded, quit
 	if os.path.exsits(download_dir):
-		retrun None
+		return None
 
 
 	if not ftp_conn(host, port, acc, pwd):
