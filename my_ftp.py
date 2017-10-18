@@ -82,6 +82,44 @@ def retrive_bak():
 ############retrive_bak()###################
 
 
+FTP_INFO = collections.namedtuple("FTP_INFO", "HOST PORT ACC PWD DIRNAME")
+
+def extract_ftp_info(s):
+	'''
+	from the string s to find the first ftp format string
+	return 'ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents'
+	'''
+	ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*)'
+	res = re.search(ftp_re,s)
+
+	if res:
+		acc = res.group(1)
+		pwd = res.group(2)
+		host = res.group(3)
+		port = res.group(4)
+		# '.'will match any character except '\n' so the last 
+		#character is '\r' and use [:-1] to slice off it
+		dirname = res.group(5)[:-1]
+
+		if not port:
+			port = '21'
+
+
+		if acc and pwd and host and port and dirname:
+			ftp_info = FTP_INFO(host, port, acc, pwd, dirname)
+			return ftp_info
+		else:
+			print("DEBUG error, some ftp info is none")
+			return None
+	else:
+		print("DEBUG no finding")
+		return None
+###########extract_ftp_info()################
+
+
+
+
+
 def ftp_conn(host, port, acc, pwd):
 	global CONN
 
