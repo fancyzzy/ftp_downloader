@@ -28,13 +28,23 @@ SAVE_DIR = os.path.join(os.getcwd(),'ftp_download')
 if not os.path.exists(SAVE_DIR):
 	os.mkdir(SAVE_DIR)
 CONN = None
-DATA_BAK = os.path.join(SAVE_DIR, "my_ftp.pkl")
+DATA_BAK_FILE = os.path.join(SAVE_DIR, "my_ftp.pkl")
 MAIL_KEYWORD = r'\d-\d{7}\d*'
 #MAIL_KEYWORD = '1-6853088'
 MONITOR_INTERVAL = '6'
 MY_FTP = collections.namedtuple("MY_FTP",\
  "host port user pwd target_dir mail_keyword interval")
 
+#outlook config
+EXSERVER = 'CASArray.ad4.ad.alcatel.com'
+MAIL_ADD = 'xxx.yy@nokia-sbell.com'
+AD4_ACC = 'ad4\\xxx'
+AD4_PWD = ''
+MY_OLOOK = collections.namedtuple("MY_OLOOK", "server mail user pwd")
+
+
+#all the data to be backup
+DATA_BAK = collections.namedtuple("DATA_BAK", "ftp_bak ol_bak")
 
 AUTOANA_ENABLE = False
 MONITOR_THREADS = []
@@ -52,24 +62,31 @@ FTP_FILE_QUE = Queue.Queue()
 
 
 def save_bak():
-	data_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR, MAIL_KEYWORD, MONITOR_INTERVAL)
+	ftp_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR, MAIL_KEYWORD, MONITOR_INTERVAL)
+	ol_bak = MY_OLOOK(EXSERVER, MAIL_ADD, AD4_ACC, AD4_PWD)
+	data_bak = DATA_BAK(ftp_bak, ol_bak)
 	printl("Save data_bak: {}".format(data_bak))
-	pickle.dump(data_bak, open(DATA_BAK,"wb"), True)
+	pickle.dump(data_bak, open(DATA_BAK_FILE,"wb"), True)
 ############save_bak()#####################
 
 
 def retrive_bak():
 	printl('\n'+read_olook.TIME_POINT)
 	try:
-		data_bak = pickle.load(open(DATA_BAK, "rb"))
+		data_bak = pickle.load(open(DATA_BAK_FILE, "rb"))
 		printl("Retrive data_bak:{}".format(data_bak))
 
-		HOST = data_bak.host
-		PORT = data_bak.port
-		ACC = data_bak.user
-		PWD = data_bak.pwd
-		DOWNLOAD_DIR = data_bak.target_dir
-		MONITOR_INTERVAL = data_bak.interval
+		HOST = data_bak.ftp_bak.host
+		PORT = data_bak.ftp_bak.port
+		ACC = data_bak.ftp_bak.user
+		PWD = data_bak.ftp_bak.pwd
+		DOWNLOAD_DIR = data_bak.ftp_bak.target_dir
+		MONITOR_INTERVAL = data_bak.ftp_bak.interval
+
+		EXSERVER = data_bak.ol_bak.server
+		MAIL_ADD = data_bak.ol_bak.mail
+		AD4_ACC = data_bak.ol_bak.user
+		AD4_PWD = data_bak.ol_bak.pwd
 
 	except Exception as e:
 		printl("ERROR occure, e= %s" %e)
@@ -294,11 +311,16 @@ class My_Ftp(object):
 		global ACC
 		global PWD
 		global DOWNLOAD_DIR
+
+		global EXSERVER
+		global MAIL_ADD
+		global AD4_ACC
+		global AD4_PWD
 		
 		self.parent_top = parent_top
 		self.ftp_top = Toplevel(parent_top)
 		self.ftp_top.title("Outlook Monitor")
-		self.ftp_top.geometry('600x300+300+220')
+		self.ftp_top.geometry('600x400+300+220')
 		self.ftp_top.iconbitmap(DOWNLOADER_ICON)
 		#self.ftp_top.attributes("-toolwindow", 1)
 		#self.ftp_top.wm_attributes('-topmost',1)
@@ -311,9 +333,12 @@ class My_Ftp(object):
 		self.lframe_qconn = ttk.Labelframe(self.ftp_top, text='Direct Download',\
 		 width= 620, height = 420)
 		self.lframe_autoconn = ttk.Labelframe(self.ftp_top, text='Auto Download',\
+		 width= 620, height = 620)
+		self.lframe_outacc = ttk.Labelframe(self.ftp_top, text='Outlook Account',\
 		 width= 620, height = 420)
 		self.pwindow_qconn.add(self.lframe_qconn)
 		self.pwindow_qconn.add(self.lframe_autoconn)
+		self.pwindow_qconn.add(self.lframe_outacc)
 
 		#Host label and entry
 		self.label_host = Label(self.lframe_qconn, text = 'Host:').grid(row=0,column=0)
@@ -395,13 +420,42 @@ class My_Ftp(object):
 		self.spin_interval.pack(side=LEFT)
 		#self.label_blank10 = Label(self.fm_down,text= ' '*0).pack()
 		self.fm_up.pack()
-		self.fm_down.pack(side='left')
+		self.fm_down.pack()
 
+		#for read exchanger configuration
+		self.fm_config = Frame(self.lframe_outacc)
+
+		#exchange serveHost label and entry
+		self.label_exserver = Label(self.fm_config, text = 'Exchange Server:')
+		self.label_exserver.grid(row=0,column=0)
+		self.v_exserver = StringVar()
+		self.entry_exserver = Entry(self.fm_config, textvariable=self.v_exserver,width=27)
+		self.entry_exserver.grid(row=0,column=1)
+
+		#Mail Address label and entry
+		self.label_mail_add = Label(self.fm_config, text = '  Mail Address:')
+		self.label_mail_add.grid(row=0,column=2)	
+		self.v_mail_add = StringVar()
+		self.entry_mail_add = Entry(self.fm_config, textvariabl=self.v_mail_add, width=29)
+		self.entry_mail_add.grid(row=0,column=3)
+
+		#Domain//Usrnamer label and entry
+		self.label_csl = Label(self.fm_config, text = 'Domain/csl:',justify = LEFT)
+		self.label_csl.grid(row=1,column=0)
+		self.v_csl = StringVar()
+		self.entry_csl = Entry(self.fm_config, textvariabl=self.v_csl, width=27)
+		self.entry_csl.grid(row=1,column=1)
+
+		#CIP Password label and entry
+		self.label_cip = Label(self.fm_config, text = '  AD4 Password:')
+		self.label_cip.grid(row=1,column=2)
+		self.v_cip = StringVar()
+		self.entry_cip = Entry(self.fm_config, show = "*",textvariabl=self.v_cip, width=29)
+		self.entry_cip.grid(row=1,column=3)
+
+		self.fm_config.pack()
 		self.pwindow_qconn.pack()
 
-		#progress bar
-		#self.pbar_tip = ttk.Progressbar(self.ftp_top, orient=HORIZONTAL, length=30,mode='indeterminate')
-		#self.pbar_tip.pack(side=LEFT)
 		self.label_blank11 = Label(self.ftp_top,text= '  '*3).pack(side=LEFT)
 		self.v_tip = StringVar()
 		self.label_tip = Label(self.ftp_top,textvariable=self.v_tip).pack(side=LEFT)
@@ -410,13 +464,18 @@ class My_Ftp(object):
 		data_bak = retrive_bak()
 		if data_bak:
 
-			self.v_host.set(data_bak.host)
-			self.v_port.set(data_bak.port)
-			self.v_user.set(data_bak.user)
-			self.v_pwd.set(data_bak.pwd)
-			self.v_ddirname.set(data_bak.target_dir)
-			self.v_mail.set(data_bak.mail_keyword)
-			self.v_interval.set(data_bak.interval)
+			self.v_host.set(data_bak.ftp_bak.host)
+			self.v_port.set(data_bak.ftp_bak.port)
+			self.v_user.set(data_bak.ftp_bak.user)
+			self.v_pwd.set(data_bak.ftp_bak.pwd)
+			self.v_ddirname.set(data_bak.ftp_bak.target_dir)
+			self.v_mail.set(data_bak.ftp_bak.mail_keyword)
+			self.v_interval.set(data_bak.ftp_bak.interval)
+
+			self.v_exserver.set(data_bak.ol_bak.server)
+			self.v_mail_add.set(data_bak.ol_bak.mail)
+			self.v_csl.set(data_bak.ol_bak.user)
+			self.v_cip.set(data_bak.ol_bak.pwd)
 		else:
 			self.v_host.set(HOST)
 			self.v_port.set(PORT)
@@ -425,6 +484,11 @@ class My_Ftp(object):
 			self.v_ddirname.set(DOWNLOAD_DIR)	
 			self.v_mail.set(MAIL_KEYWORD)
 			self.v_interval.set(MONITOR_INTERVAL)
+
+			self.v_exserver.set(EXSERVER)
+			self.v_mail_add.set(MAIL_ADD)
+			self.v_csl.set(AD4_ACC)
+			self.v_cip.set(AD4_PWD)
 		#######retrive data from disk#############:
 		self.v_new_dirname.set(self.v_ddirname.get() +'/'+ self.v_mail.get())
 		self.periodical_check()
@@ -611,6 +675,15 @@ class My_Ftp(object):
 			self.label_interval.config(state='normal')
 			AUTOANA_ENABLE = True
 
+			self.label_exserver.config(state='normal')
+			self.entry_exserver.config(state='normal')
+			self.label_mail_add.config(state='normal')
+			self.entry_mail_add.config(state='normal')
+			self.label_csl.config(state='normal')
+			self.entry_csl.config(state='normal')
+			self.label_cip.config(state='normal')
+			self.entry_cip.config(state='normal')
+
 		else:
 			printl("periodical auto download and search disabled")
 			self.entry_mail.config(state='disable')
@@ -621,6 +694,15 @@ class My_Ftp(object):
 			self.spin_interval.config(state='disable')
 			self.label_interval.config(state='disable')
 			AUTOANA_ENABLE = False
+
+			self.label_exserver.config(state='disable')
+			self.entry_exserver.config(state='disable')
+			self.label_mail_add.config(state='disable')
+			self.entry_mail_add.config(state='disable')
+			self.label_csl.config(state='disable')
+			self.entry_csl.config(state='disable')
+			self.label_cip.config(state='disable')
+			self.entry_cip.config(state='disable')
 	########Periodical_check()#####################
 
 
@@ -633,6 +715,11 @@ class My_Ftp(object):
 		global MAIL_KEYWORD
 		global MONITOR_INTERVAL
 
+		global EXSERVER
+		global MAIL_ADD
+		global AD4_ACC
+		global AD4_PWD
+
 		global ASK_QUIT
 
 		if askyesno("Tip","Save or not?"):
@@ -644,6 +731,12 @@ class My_Ftp(object):
 			DOWNLOAD_DIR = self.v_ddirname.get()
 			MAIL_KEYWORD = self.v_mail.get()
 			MONITOR_INTERVAL = self.v_interval.get()
+
+			EXSERVER = self.v_exserver.get()
+			MAIL_ADD = self.v_mail_add.get()
+			AD4_ACC = self.v_csl.get()
+			self.v_cip.set('')
+			AD4_PWD = self.v_cip.get()
 
 			save_bak()
 		else:
