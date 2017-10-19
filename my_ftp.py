@@ -99,10 +99,12 @@ def extract_ftp_info(s):
 		port = res.group(4)
 		# '.'will match any character except '\n' so the last 
 		#character is '\r' and use [:-1] to slice off it
-		dirname = res.group(5)[:-1]
+		dirname = res.group(5).strip(r'\r')
 
 		if not port:
 			port = '21'
+		else:
+			port = port[1:]
 
 
 		if acc and pwd and host and port and dirname:
@@ -201,6 +203,7 @@ def get_file_number(dirname):
 		CONN.cwd(dirname)
 	except ftplib.error_perm:
 		printl('ERROR: cannot cd to "%s"' % dirname)
+		return None
 	else:
 		new_dir = os.path.basename(dirname)
 		if not os.path.exists(new_dir):
@@ -230,7 +233,7 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 
 	os.chdir(save_dir)
 	#if this file had been downloaded, quit
-	if os.path.exsits(download_dir):
+	if os.path.exists(download_dir):
 		return None
 
 
@@ -240,6 +243,8 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 
 	printl("Calculating the download files number...")
 	m,n = get_file_number(download_dir)
+	if m == None:
+		return None
 	printl("Total %d files, %d folders to be downloaded" % (n, m))
 	ftp_download_dir(download_dir)
 	CONN.quit()
@@ -476,6 +481,18 @@ class My_Ftp(object):
 		global DOWNLOAD_DIR
 		printl("Direct_download starts")
 
+		#extract ftp info
+		if self.v_host.get():
+			ftp_info = extract_ftp_info(self.v_host.get())
+			#FTP_INFO = collections.namedtuple("FTP_INFO", "HOST PORT ACC PWD DIRNAME")
+			if ftp_info:
+				self.v_host.set(ftp_info.HOST)
+				self.v_port.set(ftp_info.PORT)
+				self.v_user.set(ftp_info.ACC)
+				self.v_pwd.set(ftp_info.PWD)
+				self.v_ddirname.set(ftp_info.DIRNAME)
+
+
 		if self.v_host.get():
 			HOST = self.v_host.get()
 		if self.v_port.get():
@@ -490,7 +507,7 @@ class My_Ftp(object):
 		saved_item_path = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, DOWNLOAD_DIR)
 
 		if not saved_item_path:
-			printl("DEBUG cannot access or file already exists")
+			printl("Download Error: cannot access or file already exists or download dir not exsits.")
 			#crash
 			#showerror(title='Ftp Connect Error', message="Cannot accesst to %s" % HOST)
 		else:
