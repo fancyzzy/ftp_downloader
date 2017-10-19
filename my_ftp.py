@@ -70,7 +70,6 @@ def retrive_bak():
 		PWD = data_bak.pwd
 		DOWNLOAD_DIR = data_bak.target_dir
 		MONITOR_INTERVAL = data_bak.interval
-		print("DEBUG retrive,MONITOR_INTERVAL=",MONITOR_INTERVAL)
 
 	except Exception as e:
 		printl("ERROR occure, e= %s" %e)
@@ -114,7 +113,6 @@ def extract_ftp_info(s):
 			print("DEBUG error, some ftp info is none")
 			return None
 	else:
-		print("DEBUG no finding")
 		return None
 ###########extract_ftp_info()################
 
@@ -159,22 +157,16 @@ def ftp_download_dir(dirname):
 	else:
 		#printl("change diretocry into %s..." %dirname)
 		new_dir = os.path.basename(dirname)
-		print("DEBUG new_dir =",new_dir)
-		print("DEBUG current dir = ",os.getcwd())
 		if not os.path.exists(new_dir):
 			os.mkdir(new_dir)
-			print('debug new_dir has been created')
 
 		os.chdir(new_dir)
 
 		filelines = []
 		CONN.dir(filelines.append)
 		filelines_bk = CONN.nlst()
-		#print("DEBUG filelines = ",filelines)
-		#print("DEBUG filelines_bk = ",filelines_bk)
 		i = 0
 		for file in filelines:
-			print('DEBUG file=', file)
 			#<DIR> display in widows and dxxx in linux
 			if '<DIR>' in file or file.startswith('d'):
 				ftp_download_dir(filelines_bk[i])
@@ -231,15 +223,18 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	global downloaded_number
 	global CONN
 
-	os.chdir(save_dir)
 	#if this file had been downloaded, quit
-	if os.path.exists(download_dir):
+	down_name = os.path.basename(download_dir)
+
+	printl("my_download starts")
+	if os.path.exists(os.path.join(save_dir,down_name)):
+		printl("file already exsit:%s"% os.path.join(save_dir,down_name))
 		return None
 
+	os.chdir(save_dir)
 
 	if not ftp_conn(host, port, acc, pwd):
 		return None
-
 
 	printl("Calculating the download files number...")
 	m,n = get_file_number(download_dir)
@@ -299,7 +294,7 @@ class My_Ftp(object):
 		global ACC
 		global PWD
 		global DOWNLOAD_DIR
-
+		
 		self.parent_top = parent_top
 		self.ftp_top = Toplevel(parent_top)
 		self.ftp_top.title("Outlook Monitor")
@@ -437,7 +432,7 @@ class My_Ftp(object):
 		self.t_tip = threading.Thread(target=self.start_progress_tip)
 		self.t_tip.start()
 
-
+		
 		##############init()###############
 
 	def start_progress_tip(self):
@@ -466,7 +461,7 @@ class My_Ftp(object):
 	def thread_ftp(self):
 
 		self.button_qconn.config(text="Please wait",bg='orange',relief='sunken',state='disabled')
-
+		
 		t = threading.Thread(target=self.direct_download)
 		#l_threads.append(t)
 		t.start()
@@ -478,6 +473,7 @@ class My_Ftp(object):
 		global PORT
 		global ACC
 		global PWD
+		global SAVE_DIR
 		global DOWNLOAD_DIR
 		printl("Direct_download starts")
 
@@ -666,12 +662,6 @@ class My_Ftp(object):
 
 
 if __name__ == '__main__':
-	HOST = '135.242.80.16'
-	PORT = '8080'
-	DOWNLOAD_DIR = '/01_Training/02_PMU/02_Documents'
-	ACC = ''
-	PWD = ''
-	SAVE_DIR = os.getcwd()
 
 	test_top = Tk()
 	test_top.withdraw()
