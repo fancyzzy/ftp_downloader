@@ -3,7 +3,7 @@
 *.pdf
 *.ppt
 *.docx
-02_Documents/BMP/BSCGP/CellT/GB/IPGCH/MS/02_Documents/my_ftp.py
 *.pkl
 *.pyc
 my_ftp.log
+ftp_download/*
