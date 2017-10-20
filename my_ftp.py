@@ -20,18 +20,18 @@ import datetime
 import tooltip
 import ctypes
 import inspect
+from tkFileDialog import askdirectory
 
 
-HOST = '135.242.80.16'
+HOST = '135.242.80.16:8080'
 PORT = '8080'
 DOWNLOAD_DIR = '/01_Training/02_PMU/02_Documents'
 ACC = 'QD-BSC2'
 PWD = 'qdBSC#1234'
-SAVE_DIR = os.path.join(os.getcwd(),'ftp_download')
-if not os.path.exists(SAVE_DIR):
-	os.mkdir(SAVE_DIR)
+SAVE_DIR = FTP_SAVES
+
 CONN = None
-DATA_BAK_FILE = os.path.join(SAVE_DIR, "my_ftp.pkl")
+DATA_BAK_FILE = os.path.join(FTP_SAVES, "my_ftp.pkl")
 MAIL_KEYWORD = r'\d-\d{7}\d*'
 #MAIL_KEYWORD = '1-6853088'
 MONITOR_INTERVAL = '6'
@@ -79,7 +79,7 @@ def save_bak():
 
 
 def retrive_bak():
-	printl('Welcome to Mail Monitor')
+	printl('Welcome to Mail Monitor v2.0')
 	try:
 		data_bak = pickle.load(open(DATA_BAK_FILE, "rb"))
 		#printl("Retrive data_bak:{}".format(data_bak))
@@ -157,48 +157,15 @@ def record_monitor():
 ############record_monitor()######################
 
 
-def extract_ftp_info(s):
-	'''
-	from the string s to find the first ftp format string
-	return 'ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents'
-	'''
-	print("Debug start extract_ftp_info")
-	ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*)'
-	res = re.search(ftp_re,s)
-
-	if res:
-		acc = res.group(1)
-		pwd = res.group(2)
-		host = res.group(3)
-		port = res.group(4)
-		# '.'will match any character except '\n' so the last 
-		#character is '\r' and use [:-1] to slice off it
-		dirname = res.group(5).strip('\r')
-
-		if not port:
-			port = '21'
-		else:
-			port = port[1:]
-
-		if acc and pwd and host and port and dirname:
-			ftp_info = FTP_INFO(host, port, acc, pwd, dirname)
-			print("DEBUG ftp info found: %s" % ''.join(ftp_info))
-			return ftp_info
-		else:
-			print("DEBUG error, some ftp info is none")
-			return None
-	else:
-		print("DEBUG ftp info not found return None")
-		return None
-###########extract_ftp_info()################
-
-
 def ftp_conn(host, port, acc, pwd):
 	global CONN
 
 	printl('ftp_conn start, host:{0}, port:{1}, acc:{2}, pwd:{3}'\
 		.format(host,port,acc,pwd))
 
+	print("DEBUG type(host)=",type(host))
+	print("DEBUG type(acc)=",type(acc))
+	print("DEBUG type(pwd)=",type(pwd))
 	try:
 		CONN = ftplib.FTP()
 		CONN.connect(host, port)
@@ -375,57 +342,84 @@ class My_Ftp(object):
 		self.parent_top = parent_top
 		self.ftp_top = Toplevel(parent_top)
 		self.ftp_top.title("Mail Monitor")
-		self.ftp_top.geometry('600x330+300+220')
+		self.ftp_top.geometry('660x330+300+220')
 		self.ftp_top.iconbitmap(DOWNLOADER_ICON)
 		#self.ftp_top.attributes("-toolwindow", 1)
 		#self.ftp_top.wm_attributes('-topmost',1)
 		self.ftp_top.protocol("WM_DELETE_WINDOW",lambda :self.ask_quit(self.ftp_top))
 		self.running = True
 
-		blank_label_1 = Label(self.ftp_top, text = '').pack()
+
+		#Label(self.ftp_top, text='').pack()
+		#Label(self.ftp_top, text='').pack()
+		fm0 = Frame(self.ftp_top)
+		#Label(fm0, text='Mail Monitor v2.0',\
+		#	font = ('Helvetica', 12, 'bold')).pack()#, fg= my_color_blue_office)
+		blank_label_1 = Label(fm0, text = '').pack()
+
+		fm0.pack()
+
+		
+		self.dir_fm = Frame(self.ftp_top)
+		self.l_savein = Label(self.dir_fm, text="Save in: ")
+		self.v_savein = StringVar()
+		self.entry_savein = Entry(self.dir_fm, width=67, textvariable=self.v_savein)
+		self.v_savein.set(SAVE_DIR)
+		self.entry_savein.config(state='disabled')
+
+		self.b_savein = Button(self.dir_fm, text='Choose directory', command=self.choose_dir, activeforeground\
+			='white', activebackground='orange')
+		self.b_savein.pack(side=RIGHT)
+		self.l_savein.pack(side=LEFT)
+		self.entry_savein.pack(side=LEFT)
+		self.dir_fm.pack()	
+
+
+
 		self.pwindow_qconn = ttk.Panedwindow(self.ftp_top, orient=VERTICAL)
 
 		self.lframe_qconn = ttk.Labelframe(self.ftp_top, text='Direct Download',\
 		 width= 620, height = 220)
 		self.lframe_autoconn = ttk.Labelframe(self.ftp_top, text='Auto Download',\
 		 width= 620, height = 220)
-		#self.lframe_outacc = ttk.Labelframe(self.ftp_top, text='Outlook Account',\
-		# width= 620, height = 420)
+
 		self.pwindow_qconn.add(self.lframe_qconn)
 		self.pwindow_qconn.add(self.lframe_autoconn)
-		#self.pwindow_qconn.add(self.lframe_outacc)
 
 		#Host label and entry
-		self.label_host = Label(self.lframe_qconn, text = 'Host:').grid(row=0,column=0)
+		self.label_host = Label(self.lframe_qconn, text = 'Ftp Host:').grid(row=0,column=0)
 		self.v_host = StringVar()
-		self.entry_host = Entry(self.lframe_qconn, textvariable=self.v_host,width=20)
+		self.entry_host = Entry(self.lframe_qconn, textvariable=self.v_host,width=50)
 		self.entry_host.grid(row=0,column=1)
-		ts ="Input a ftp format, for example:\n ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents\n then click 'Direct download' to download files in this directory"
+		ts1 ="Either input an ip:port address or a full ftp url:\n ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/"
+		ts2 ="01_Training/02_PMU/02_Documents\n then click 'Direct download' to download files in this directory"
+		ts=ts1+ts2
 		tooltip.ToolTip(self.entry_host, msg=None, msgFunc=lambda : ts, follow=True, delay=0.2)
 
 		#Port label and entry
-		self.label_port = Label(self.lframe_qconn, text = '   Port:').grid(row=0,column=2)
+		self.label_port = Label(self.lframe_qconn, text = 'Port:')
+		#self.label_port.grid(row=0,column=2)
 		self.v_port = StringVar()
 		self.entry_port = Entry(self.lframe_qconn, textvariabl=self.v_port, width=20)
-		self.entry_port.grid(row=0,column=3)
+		#self.entry_port.grid(row=0,column=3)
 
 		#Usrnamer label and entry
-		self.label_user = Label(self.lframe_qconn, text = '   Username:').grid(row=1,column=0)
+		self.label_user = Label(self.lframe_qconn, text = 'Username:').grid(row=0,column=2)
 		self.v_user = StringVar()
 		self.entry_user = Entry(self.lframe_qconn, textvariabl=self.v_user, width=20)
-		self.entry_user.grid(row=1,column=1)
+		self.entry_user.grid(row=0,column=3)
 
 		#Password label and entry
-		self.label_pwd = Label(self.lframe_qconn, text = '   Password:').grid(row=1,column=2)
+		self.label_pwd = Label(self.lframe_qconn, text = 'Password:').grid(row=1,column=2)
 		self.v_pwd = StringVar()
 		self.entry_pwd = Entry(self.lframe_qconn, textvariabl=self.v_pwd, width=20)
 		self.entry_pwd.grid(row=1,column=3)
 
 		#Download dirname
-		self.label_ddirname = Label(self.lframe_qconn, text = 'Dirname:').grid(row=2,column=0)
+		self.label_ddirname = Label(self.lframe_qconn, text = 'Dirname:').grid(row=1,column=0)
 		self.v_ddirname = StringVar()
-		self.entry_ddirname = Entry(self.lframe_qconn, textvariabl=self.v_ddirname, width=40)
-		self.entry_ddirname.grid(row=2,column=1)
+		self.entry_ddirname = Entry(self.lframe_qconn, textvariabl=self.v_ddirname, width=50)
+		self.entry_ddirname.grid(row=1,column=1)
 
 		#Download button
 		self.button_qconn = Button(self.lframe_qconn,text="Direct dowload",\
@@ -482,8 +476,8 @@ class My_Ftp(object):
 		self.v_mail_k = StringVar()
 		self.entry_mail_k = Entry(self.fm_config, textvariable=self.v_mail_k,width=27)
 		self.entry_mail_k.grid(row=2,column=1)
-		ts ="Refer to the Python regular expression"
-		tooltip.ToolTip(self.entry_mail_k, msg=None, msgFunc=lambda : ts, follow=True, delay=0.2)
+		tts ="Refer to the Python regular expression\n '.*' means no filter"
+		tooltip.ToolTip(self.entry_mail_k, msg=None, msgFunc=lambda : tts, follow=True, delay=0.2)
 
 
 		self.label_interval = Label(self.fm_config,text= 'Monitor Interval(sec):')
@@ -507,6 +501,7 @@ class My_Ftp(object):
 
 		self.pwindow_qconn.pack()
 
+		Label(self.ftp_top,text='  ').pack(side=LEFT)
 		self.fm_tip = Frame(self.ftp_top)
 		#self.label_blank11 = Label(self.fm_tip,text= '  '*3).pack(side=LEFT)
 		self.v_tip = StringVar()
@@ -554,6 +549,77 @@ class My_Ftp(object):
 		
 		##############init()###############
 
+
+	def extract_ftp_info(self,s):
+		'''
+		from the string s to find the first ftp format string
+		return 'ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents'
+		'''
+		print("Debug start extract_ftp_info")
+		full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*)'
+		res = re.search(full_ftp_re,s)
+	
+		if res:
+			acc = res.group(1)
+			pwd = res.group(2)
+			host = res.group(3)
+			port = res.group(4)
+			# '.'will match any character except '\n' so the last 
+			#character is '\r' and use [:-1] to slice off it
+			dirname = res.group(5).strip('\r')
+	
+			if not port:
+				port = '21'
+			else:
+				port = port[1:]
+	
+			if acc and pwd and host and port and dirname:
+				ftp_info = FTP_INFO(host, port, acc, pwd, dirname)
+				print("DEBUG ftp info found: %s" % ''.join(ftp_info))
+				return ftp_info
+			else:
+				print("DEBUG error, some ftp info is none")
+				return None
+		else:
+			host_port_re = r'(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?'
+			host_port_res = re.search(host_port_re,s)
+			if host_port_res:
+				host = host_port_res.group(1)
+				port = host_port_res.group(2)
+				if not port:
+					port = '21'
+				else:
+					port = port[1:]
+				if host and port:
+					self.v_host.set(host)
+					self.v_port.set(port)
+				print("DEBUG host:{},port:{} got!".format(self.v_host.get(),self.v_port.get()))
+				return None
+			else:		
+				print("DEBUG ftp info not found return None")
+				return None
+###########extract_ftp_info()################
+
+
+	def choose_dir(self,ev=None):
+		global SAVE_DIR 
+		p = askdirectory(mustexist=1)  # 返回目录路径
+		print("choose to save in directory:",p)
+		if 'unicode' in str(type(p)):
+			p = p.encode('utf-8')#.decode('gb2312')
+		elif 'str' in str(type(p)):
+			p = p.decode('utf-8')
+
+		print(p)
+		print("DEBUG type(SAVE_DIR)",type(SAVE_DIR))
+
+		if p:
+			SAVE_DIR = p
+			print("DEBUG type(SAVE_DIR)",type(SAVE_DIR))
+			self.v_savein.set(p)
+	######open_dir()##############
+
+
 	def start_progress_tip(self):
 		global FTP_TIP_QUE 
 		global ASK_QUIT
@@ -599,7 +665,7 @@ class My_Ftp(object):
 		#extract ftp info
 		if self.v_host.get():
 
-			ftp_info = extract_ftp_info(self.v_host.get())
+			ftp_info = self.extract_ftp_info(self.v_host.get())
 			#FTP_INFO = collections.namedtuple("FTP_INFO", "HOST PORT ACC PWD DIRNAME")
 			if ftp_info:
 				self.v_host.set(ftp_info.HOST)
@@ -619,6 +685,8 @@ class My_Ftp(object):
 		if self.v_ddirname.get():
 			DOWNLOAD_DIR = self.v_ddirname.get()
 
+		#set host to display as ip:port format
+		self.v_host.set(HOST + ':' + PORT)
 		file_saved = ''
 		file_saved = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, DOWNLOAD_DIR)
 
@@ -678,7 +746,7 @@ class My_Ftp(object):
 					else:
 						#Extract ftp info and then start to download 
 						plain_body = del_html.sub('',mail_item.body)
-						ftp_info = extract_ftp_info(plain_body)
+						ftp_info = self.extract_ftp_info(plain_body)
 						if ftp_info:
 							print("\a")
 							printl("Detected ftp_info:{}".format(ftp_info))
