@@ -48,6 +48,7 @@ AD4_ACC = 'ad4\\xxx'
 AD4_PWD = ''
 MY_OLOOK = collections.namedtuple("MY_OLOOK", "server mail user pwd")
 
+FTP_INFO = collections.namedtuple("FTP_INFO", "HOST PORT ACC PWD DIRNAME")
 
 #all the data to be backup
 DATA_BAK = collections.namedtuple("DATA_BAK", "ftp_bak ol_bak")
@@ -141,7 +142,27 @@ def terminate_threads(l_threads):
 ################terminate_threads()##########################
 
 
-FTP_INFO = collections.namedtuple("FTP_INFO", "HOST PORT ACC PWD DIRNAME")
+def record_monitor():
+	global IS_FIND
+	global MONITOR_REC_LIST
+
+	if IS_FIND and MONITOR_REC_LIST:
+		try:
+			with open(MONITOR_REC_FILE, 'a') as fobj:
+				for item in MONITOR_REC_LIST:
+					print("DEBUG type(item)=",type(item))
+					print(item)
+					if 'unicode' in str(type(item)):
+						item = item.encode('utf-8')
+					fobj.write(item + '\n')
+  					fobj.write('Monitor stop\n')
+		except Exception as e:
+			printl("Record monitor history file error:%s" % e)
+		else:
+			MONITOR_REC_LIST[:] = []
+			IS_FIND = False
+############record_monitor()######################
+
 
 def extract_ftp_info(s):
 	'''
@@ -149,7 +170,7 @@ def extract_ftp_info(s):
 	return 'ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents'
 	'''
 	print("Debug start extract_ftp_info")
-	ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*)'
+	ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*\r)'
 	res = re.search(ftp_re,s)
 
 	if res:
@@ -174,6 +195,7 @@ def extract_ftp_info(s):
 			print("DEBUG error, some ftp info is none")
 			return None
 	else:
+		print("DEBUG ftp info not found return None")
 		return None
 ###########extract_ftp_info()################
 
@@ -181,7 +203,7 @@ def extract_ftp_info(s):
 def ftp_conn(host, port, acc, pwd):
 	global CONN
 
-	printl('Ftp connecting start, host:{0}, port:{1}, acc:{2}, pwd:{3}'\
+	printl('ftp_conn start, host:{0}, port:{1}, acc:{2}, pwd:{3}'\
 		.format(host,port,acc,pwd))
 
 	try:
@@ -651,6 +673,7 @@ class My_Ftp(object):
 		#change method of getting mails from win32com to exchangelib
 		#my_subfolder = my_ol.find_subfolder(find_folder)
 		re_rule = re.compile(mail_keyword, re.I)
+		del_html = re.compile(r'<[^>]+>',re.S)
 
 		saved_item_path = ''
 		n = 0
@@ -664,11 +687,16 @@ class My_Ftp(object):
 						break
 					else:
 						#Extract ftp info and then start to download 
-						ftp_info = extract_ftp_info(mail_item.body)
+						plain_body = del_html.sub('',mail_item.body)
+						ftp_info = extract_ftp_info(plain_body)
 						if ftp_info:
-							printl("Detect ftp_info: %s"%''.join(ftp_info))
+							print("\a")
+							printl("Detected ftp_info:{}".format(ftp_info))
 							#FTP_INFO = collections.namedtuple("FTP_INFO", "HOST PORT ACC PWD DIRNAME")
-							self.v_host.set(''.join(ftp_info))
+							s = r"ftp://"+ftp_info.ACC+":"+ftp_info.PWD+"@"+ftp_info.HOST+":"+\
+							ftp_info.PORT+ftp_info.DIRNAME
+							printl("debug s = %s"% s)
+							self.v_host.set(s)
 							file_saved = self.direct_download()
 							#record mail, time, ftp, file_saved
 							#MONITOR_REC = collections.namedtuple("M_REC", "index time subject ftp download_file")
@@ -690,15 +718,8 @@ class My_Ftp(object):
 				 % (int(self.v_interval.get()), self.interval_count))
 
 
-				if IS_FIND and self.interval_count % 10 == 0:
-					try:
-						with open(MONITOR_REC_FILE, 'a') as fobj:
-							for item in MONITOR_REC_LIST:
-	  							fobj.write(item + '\n')
-	  				except Exception as e:
-	  					printl("Record monitor history file error:%s" % e)
-	  				else:
-	  					MONITOR_REC_LIST[:] = []
+				if self.interval_count % 10 == 0:
+					record_monitor()
 
 				if MONITOR_STOP:
 					printl("Monitor stopped")
@@ -747,17 +768,8 @@ class My_Ftp(object):
 		pythoncom.CoUninitialize()
 		'''
 		#record
-		if IS_FIND:
-			try:
-				with open(MONITOR_REC_FILE, 'a') as fobj:
-					for item in MONITOR_REC_LIST:
-	  					fobj.write(item + '\n')
-	  		except Exception as e:
-	  			printl("Record monitor history file error:%s" % e)
+		record_monitor()
 
-
-	  	MONITOR_REC_LIST[:] = []
-	  	IS_FIND = False
 		self.button_monitor.config(text="Start monitor",bg='white',relief='raised',state='normal')
 	#############start_monitor()#############
 
@@ -786,16 +798,9 @@ class My_Ftp(object):
 			self.button_monitor.config(text="Stopping..",bg='orange', relief='sunken',state='disable')
 			terminate_threads(MONITOR_THREADS)
 			printl("Monitor is terminated")
-			if IS_FIND and MONITOR_REC_LIST:
-				try:
-					with open(MONITOR_REC_FILE, 'a') as fobj:
-						for item in MONITOR_REC_LIST:
-	  						fobj.write(item + '\n')
-	  					fobj.write('Monitor stop\n')
-	  			except Exception as e:
-	  				printl("Record monitor history file error:%s" % e)
-	  			else:
-	  				MONITOR_REC_LIST[:] = []
+			
+			record_monitor()
+
 			self.button_monitor.config(text="Start monitor",bg='white',relief='raised',state='normal')
 	############start_thread_monitor()#############
 
