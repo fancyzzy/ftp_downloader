@@ -13,49 +13,34 @@ import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 import re
+import threading
+from time import sleep
+from log_reserve import printl
 
 
-
-
-'''
-user_name = raw_input("input domain\\account:")
-print("DEBUG username=",user_name)
-pwd = raw_input("input password:")
-#mail_addr = 'felix.zhang@alcatel-lucent.com'
-mail_addr = raw_input("input mail address:")
-'''
 EXCHANGE_SERVER_ADD = 'CASArray.ad4.ad.alcatel.com'
-
 tz = EWSTimeZone.timezone('UTC')
-UTC_NOW = tz.localize(EWSDateTime.now()) - timedelta(hours=8)
-print("DEBUG utc_now=",UTC_NOW)
-
-
+UTC_NOW = tz.localize(EWSDateTime.now())# - timedelta(hours=8)
+#printl("DEBUG read_exchange.py: utc_now= %s" %str(UTC_NOW))
 
 user_name = 'ad4\\tarzonz'
 pwd = 'CV_28763_10a'
 mail_addr = 'felix.zhang@alcatel-lucent.com'
 
-'''
-credentials = Credentials(username=user_name, password=pwd)
-config = Configuration(server= EXCHANGE_SERVER_ADD, credentials=credentials)
-MY_ACC = Account(primary_smtp_address=mail_addr, config=config,
-                     autodiscover=False, access_type=DELEGATE)
-'''
-
-#print(MY_ACC.root.tree())
 
 class MY_OUTLOOK():
-	def __init__(self, user_name, pwd, server_addr, mail_addr):
+	def __init__(self, acc, pwd, ser, mail):
 		global UTC_NOW
 
-		credentials = Credentials(username=user_name, password=pwd)
-		config = Configuration(server= EXCHANGE_SERVER_ADD, credentials=credentials)
-		self.my_account = Account(primary_smtp_address=mail_addr, config=config, \
-			autodiscover=False, access_type=DELEGATE)
+		credentials = Credentials(username = acc, password = pwd)
+		config = Configuration(server= ser, credentials = credentials)
+		self.my_account = Account(primary_smtp_address = mail, config=config,\
+			autodiscover = False, access_type = DELEGATE)
 
 		tz = EWSTimeZone.timezone('UTC')
 		self.utc_time_point = UTC_NOW
+		printl("Successfully accessed to exchange server. time:%s"%str(UTC_NOW))
+		printl("Server:{0}, Mail:{1}, Username{2}".format(ser,mail,acc))
 	##########init()##############
 
 
@@ -65,72 +50,101 @@ class MY_OUTLOOK():
 		a mail list that contains new mails subjects
 		which received time is > the specific time
 		'''
-		print('Start find new mails...')
-		print("DEBUG specific now_time =",self.utc_time_point)
+		print("Start to check new mail received after time: %s"%str(self.utc_time_point))
 
 		#mail_list = []
 		my_inbox = self.my_account.inbox
 		my_inbox.refresh()
 		mail_number = my_inbox.total_count
 		latest_mail =my_inbox.all().order_by('-datetime_received')[:1].next()
+		latest_mail_time = latest_mail.datetime_received + timedelta(hours=8)
 
-		if self.utc_time_point > latest_mail.datetime_received:
+		if self.utc_time_point >= latest_mail_time:
 			print("No new mail..")
 			yield None
 
-		print("There are new mails received after this time point:",\
-			self.utc_time_point)
-
 		re_rule = re.compile(mail_subject_keyword, re.I)
+		latest_ten = my_inbox.all().order_by('-datetime_received')[:10]
+		for item in latest_ten:
 
-		print("DEBUG start to find latest 10 mails")
-		for item in my_inbox.all().order_by('-datetime_received')[:10]:
-			d_rec = item.datetime_received
+			d_rec = item.datetime_received + timedelta(hours=8)
+			if self.utc_time_point >= d_rec:
+				break
 			subject = item.subject
-			print("New mail Date:[%s], subject:[%s]" % (str(d_rec), subject))
 
 			if re_rule.search(subject):
-				print("keyword %s match!" % mail_subject_keyword)	
+				printl("Detect a new mail, Date:[%s], subject:[%s]" % (str(d_rec), subject))
 				yield item
 
-			if self.utc_time_point > d_rec:
+		#update time to the checked latest mail's
+		self.utc_time_point = latest_mail_time
+	##############find_mail()################################
+
+
+def test_start_monitor():
+	global UTC_NOW
+	global user_name
+	global pwd
+	global EXCHANGE_SERVER_ADD
+	global mail_addr
+
+	#pythoncom.CoInitialize()
+
+	print("DEBUG test monitor start")
+	my_ol = MY_OUTLOOK(user_name, pwd, EXCHANGE_SERVER_ADD, mail_addr)
+
+	if my_ol:
+		mail_subject_keyword = '.*'
+		n = 0
+		while 1:
+			n += 1
+			print(n)
+			if n == 25:
 				break
 
-		#update time to the checked latest mail's
-		self.utc_time_point = latest_mail.datetime_received
-	##############find_mail()################################
+			for mail in my_ol.find_mail(mail_subject_keyword):
+				#find ftp info
+				if not mail:
+					break
+				else:
+					#print("need to find ftp info from mail(subject):",mail.subject)
+					pass
+
+			print("debug 6 seconds interval... %d/20\n" % n)
+			sleep(6)
+
+	else:
+		print("DEBUG my_ol is none")
+
+	print("DEBUG quit")
+	a = raw_input('input anything to quit this test>')
+
+#########test_start_monitor()#######################
+
 
 if __name__ == '__main__':
 
-	'''
-	print("total_count=",MY_ACC.inbox.total_count)
-	mail_received_list = MY_ACC.inbox.all().order_by('-datetime_received')
-	for item in MY_ACC.inbox.all().order_by('-datetime_received')[:1]:
-		#print(item.subject, item.body, item.attachments)
-		print("The latest mail subject:", item.subject)
-		#print("The latest mail body:", item.body)
-		#print("dir item=",dir(item))
-		d_rec = item.datetime_received
-		print("The latest mail received time:", d_rec)
-		print("utc_now=",UTC_NOW)
-		print(d_rec < UTC_NOW)
-
-		html_str = item.body
-		dr = re.compile(r'<[^>]+>',re.S)
-		dd = dr.sub('',html_str)
-		print
-		print("After filter, dd=",dd)
-	'''
+	print("DEBUG start main")
 	#timedelta = 8 means now, - 9 means 1 hour earlier
-	UTC_NOW = tz.localize(EWSDateTime.now()) - timedelta(hours=9)
-	print("DEBUG utc_now=",UTC_NOW)
+	UTC_NOW = tz.localize(EWSDateTime.now()) - timedelta(hours=1)
 
+	t = threading.Thread(target=test_start_monitor)
+	t.start()		
+
+	'''
 	print("DEBUG start")
 	my_o = MY_OUTLOOK(user_name, pwd, EXCHANGE_SERVER_ADD, mail_addr)
 	print("initialized")
 	mail_subject_keyword = '.*'
+
 	for mail in my_o.find_mail(mail_subject_keyword):
-		print("DEBUG new_mail subject = %s"%mail.subject)
+		if mail:
+			print("DEBUG get the new_mail with subject = %s" % mail.subject)
+			print("debug type(mail) =",type(mail))
+			print("debug dir(mail) =",dir(mail))
+			break
 
+	print("done")
+	#a  = raw_input('quit')
 
-	a  = raw_input('quit')
+	'''

@@ -13,11 +13,16 @@ import cPickle as pickle
 import collections
 import threading
 import Queue
-import read_olook
+#change method of getting mails from win32com to exchangelib
+#import read_olook
+#import pythoncom 
+import read_exchange
 from log_reserve import *
 import time
-import pythoncom 
+import datetime
 import tooltip
+import ctypes
+import inspect
 
 
 HOST = '135.242.80.16'
@@ -50,6 +55,11 @@ DATA_BAK = collections.namedtuple("DATA_BAK", "ftp_bak ol_bak")
 AUTOANA_ENABLE = False
 MONITOR_THREADS = []
 MONITOR_STOP = True
+MONITOR_REC = collections.namedtuple("M_REC", "index time subject ftp download_file")
+MONITOR_REC_FILE = os.path.join(SAVE_DIR, "monitor_history.txt")
+MONITOR_REC_LIST = []
+MONITOR_REC_LIST.append(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+IS_FIND = False
 
 DOWNLOADER_ICON = os.path.join(os.path.join(os.getcwd(), "resource"),'mail.ico')
 
@@ -72,7 +82,9 @@ def save_bak():
 
 
 def retrive_bak():
-	printl('\n'+read_olook.TIME_POINT)
+	#change method of getting mails from win32com to exchangelib
+	#printl('\n'+read_olook.TIME_POINT)
+	printl('Welcome to Ftp Monitor------------------------')
 	try:
 		data_bak = pickle.load(open(DATA_BAK_FILE, "rb"))
 		printl("Retrive data_bak:{}".format(data_bak))
@@ -99,6 +111,36 @@ def retrive_bak():
 ############retrive_bak()###################
 
 
+#terminate threads
+def _async_raise(tid, exctype):
+		"""raises the exception, performs cleanup if needed"""
+		tid = ctypes.c_long(tid)
+		if not inspect.isclass(exctype):
+			exctype = type(exctype)
+		res = ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, ctypes.py_object(exctype))
+		if res == 0:
+			raise ValueError("invalid thread id")
+		elif res != 1:
+			# """if it returns a number greater than one, you're in trouble,
+			# and you should call it again with exc=NULL to revert the effect"""
+			ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, None)
+			raise SystemError("PyThreadState_SetAsyncExc failed")
+
+def terminate_threads(l_threads):
+	'''
+	强制终止线程
+	'''
+	print "DEBUG start terminate threads: {}".format(l_threads)
+	if l_threads:
+		for t in l_threads:
+			if t.is_alive():
+				_async_raise(t.ident, SystemExit)
+	#clear the thread list
+	l_threads[:] = []
+	print "terminate threads done"
+################terminate_threads()##########################
+
+
 FTP_INFO = collections.namedtuple("FTP_INFO", "HOST PORT ACC PWD DIRNAME")
 
 def extract_ftp_info(s):
@@ -106,6 +148,7 @@ def extract_ftp_info(s):
 	from the string s to find the first ftp format string
 	return 'ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents'
 	'''
+	print("Debug start extract_ftp_info")
 	ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*)'
 	res = re.search(ftp_re,s)
 
@@ -123,9 +166,9 @@ def extract_ftp_info(s):
 		else:
 			port = port[1:]
 
-
 		if acc and pwd and host and port and dirname:
 			ftp_info = FTP_INFO(host, port, acc, pwd, dirname)
+			print("DEBUG ftp info found: %s" % ''.join(ftp_info))
 			return ftp_info
 		else:
 			print("DEBUG error, some ftp info is none")
@@ -133,9 +176,6 @@ def extract_ftp_info(s):
 	else:
 		return None
 ###########extract_ftp_info()################
-
-
-
 
 
 def ftp_conn(host, port, acc, pwd):
@@ -428,10 +468,14 @@ class My_Ftp(object):
 		self.v_mail_k = StringVar()
 		self.entry_mail_k = Entry(self.fm_config, textvariable=self.v_mail_k,width=27)
 		self.entry_mail_k.grid(row=2,column=1)
+		ts ="Refer to the Python regular expression"
+		tooltip.ToolTip(self.entry_mail_k, msg=None, msgFunc=lambda : ts, follow=True, delay=0.2)
+
 
 		self.label_interval = Label(self.fm_config,text= 'Monitor Interval(sec):')
 		self.label_interval.grid(row=2,column=2)
 		self.v_interval = StringVar()
+		self.interval_count = 0
 		self.spin_interval = Spinbox(self.fm_config, textvariable=self.v_interval,\
 			width = 8, from_=1, to=8640,increment=1)
 		self.spin_interval.grid(row=2,column=3)	
@@ -464,9 +508,11 @@ class My_Ftp(object):
 			self.v_pwd.set(data_bak.ftp_bak.pwd)
 			self.v_ddirname.set(data_bak.ftp_bak.target_dir)
 			self.v_mail_k.set(data_bak.ftp_bak.mail_keyword)
+			#print("DEBUG self.v_mail_k = ",self.v_mail_k.get())
 			self.v_interval.set(data_bak.ftp_bak.interval)
 
 			self.v_exserver.set(data_bak.ol_bak.server)
+			self.v_mail_k_add.set(data_bak.ol_bak.mail)
 			self.v_mail_k_add.set(data_bak.ol_bak.mail)
 			self.v_csl.set(data_bak.ol_bak.user)
 			self.v_cip.set(data_bak.ol_bak.pwd)
@@ -545,7 +591,6 @@ class My_Ftp(object):
 				self.v_pwd.set(ftp_info.PWD)
 				self.v_ddirname.set(ftp_info.DIRNAME)
 
-
 		if self.v_host.get():
 			HOST = self.v_host.get()
 		if self.v_port.get():
@@ -557,39 +602,112 @@ class My_Ftp(object):
 		if self.v_ddirname.get():
 			DOWNLOAD_DIR = self.v_ddirname.get()
 
-		saved_item_path = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, DOWNLOAD_DIR)
+		file_saved = ''
+		file_saved = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, DOWNLOAD_DIR)
 
-		if not saved_item_path:
+		if not file_saved:
 			printl("Download Error: cannot access or file already exists or download dir not exsits.")
 			#crash
 			#showerror(title='Ftp Connect Error', message="Cannot accesst to %s" % HOST)
 		else:
 			printl("Downloaded success and saved in dir: %s" % \
-				saved_item_path)
+				file_saved)
+
+			#change method of getting mails from win32com to exchangelib
+			if AUTOANA_ENABLE:
+				#send to queue for other processing, e.g.,auto search in listdir.py
+				print("DEBUG my_ftp.py send %s to auto analyse" % file_save)
+				FTP_FILE_QUE.put(file_saved)
 
 		self.button_qconn.config(text="Direct download",bg='white',relief='raised',state='normal')
+
+		return file_saved
 	##############direct_download()##################
 
 	#revise with read_exchange
 	def start_monitor(self, mail_keyword):
+		global MONITOR_REC_LIST
+		global MONITOR_REC_FILE
+		global IS_FIND
 
-		pythoncom.CoInitialize() 
-		interval_time = 10
-		interval_count = 0
+		#change method of getting mails from win32com to exchangelib
+		#pythoncom.CoInitialize() 
+		self.interval_count = 0
 
 		find_folder = "inbox"
 		try:
-			my_ol = read_olook.My_Outlook()
+			#change method of getting mails from win32com to exchangelib
+			#my_ol = read_olook.My_Outlook()
+			#def __init__(self, acc, pwd, ser, mail)
+			acc = self.v_csl.get()
+			pwd = self.v_cip.get()
+			ser = self.v_exserver.get()
+			mail = self.v_mail_k_add.get()
+			my_ol = read_exchange.MY_OUTLOOK(acc, pwd, ser, mail)
 		except Exception as e:
-			printl("Debug outlook initialization failed, e: %s"% e)
+			printl("Error outlook initialization failed, e: %s"% e)
 			return
 
-		printl("Start_monitor")
-		my_subfolder = my_ol.find_subfolder(find_folder)
+		#change method of getting mails from win32com to exchangelib
+		#my_subfolder = my_ol.find_subfolder(find_folder)
 		re_rule = re.compile(mail_keyword, re.I)
 
 		saved_item_path = ''
+		n = 0
+		IS_FIND = False
+	
+		if my_ol:
+			printl('Start monitoring...')
+			while 1:
+				for mail_item in my_ol.find_mail(self.v_mail_k.get()):
+					if not mail_item:
+						break
+					else:
+						#Extract ftp info and then start to download 
+						ftp_info = extract_ftp_info(mail_item.body)
+						if ftp_info:
+							printl("Detect ftp_info: %s"%''.join(ftp_info))
+							#FTP_INFO = collections.namedtuple("FTP_INFO", "HOST PORT ACC PWD DIRNAME")
+							self.v_host.set(''.join(ftp_info))
+							file_saved = self.direct_download()
+							#record mail, time, ftp, file_saved
+							#MONITOR_REC = collections.namedtuple("M_REC", "index time subject ftp download_file")
+							n += 1
+							t = str(mail_item.datetime_received)
+							s = mail_item.subject
+							f = ''.join(ftp_info)
+							if file_saved:
+								d = file_saved
+							else:
+								d = r"N/A"
+							monitor_record = MONITOR_REC(str(n), t, s, f, d)
+							MONITOR_REC_LIST.append(''.join(monitor_record))
+							IS_FIND = True
 
+				time.sleep(int(self.v_interval.get()))
+				self.interval_count += 1
+				printl("%d seconds interval..count %d"\
+				 % (int(self.v_interval.get()), self.interval_count))
+
+
+				if IS_FIND and self.interval_count % 10 == 0:
+					try:
+						with open(MONITOR_REC_FILE, 'a') as fobj:
+							for item in MONITOR_REC_LIST:
+	  							fobj.write(item + '\n')
+	  				except Exception as e:
+	  					printl("Record monitor history file error:%s" % e)
+	  				else:
+	  					MONITOR_REC_LIST[:] = []
+
+				if MONITOR_STOP:
+					printl("Monitor stopped")
+					break
+
+		else:
+			printl("ERROR, cannot access to the exhcange server")
+		#change method of getting mails from win32com to exchangelib
+		'''
 		if my_subfolder:
 			printl('Start monitor...')
 			while 1:
@@ -627,6 +745,19 @@ class My_Ftp(object):
 		else:
 			printl("Error, no such folder: %s" % find_folder)
 		pythoncom.CoUninitialize()
+		'''
+		#record
+		if IS_FIND:
+			try:
+				with open(MONITOR_REC_FILE, 'a') as fobj:
+					for item in MONITOR_REC_LIST:
+	  					fobj.write(item + '\n')
+	  		except Exception as e:
+	  			printl("Record monitor history file error:%s" % e)
+
+
+	  	MONITOR_REC_LIST[:] = []
+	  	IS_FIND = False
 		self.button_monitor.config(text="Start monitor",bg='white',relief='raised',state='normal')
 	#############start_monitor()#############
 
@@ -635,11 +766,13 @@ class My_Ftp(object):
 
 		global MAIL_KEYWORD
 		global MONITOR_STOP
+		global MONITOR_REC_LIST
+		global IS_FIND
 
 		if self.v_mail_k.get():
 			MAIL_KEYWORD = self.v_mail_k.get()
 
-		self.button_monitor.config(text="Click to stop",bg='orange', relief='sunken',state='normal')
+		self.button_monitor.config(text="Click to stop...",bg='orange', relief='sunken',state='normal')
 
 		if MONITOR_STOP:
 			MONITOR_STOP = False
@@ -651,6 +784,19 @@ class My_Ftp(object):
 		else:
 			MONITOR_STOP = True
 			self.button_monitor.config(text="Stopping..",bg='orange', relief='sunken',state='disable')
+			terminate_threads(MONITOR_THREADS)
+			printl("Monitor is terminated")
+			if IS_FIND and MONITOR_REC_LIST:
+				try:
+					with open(MONITOR_REC_FILE, 'a') as fobj:
+						for item in MONITOR_REC_LIST:
+	  						fobj.write(item + '\n')
+	  					fobj.write('Monitor stop\n')
+	  			except Exception as e:
+	  				printl("Record monitor history file error:%s" % e)
+	  			else:
+	  				MONITOR_REC_LIST[:] = []
+			self.button_monitor.config(text="Start monitor",bg='white',relief='raised',state='normal')
 	############start_thread_monitor()#############
 
 
@@ -730,6 +876,7 @@ class My_Ftp(object):
 		else:
 			pass
 
+		printl('Bye---------------------------------------'+'\n')
 		ASK_QUIT = True
 		self.running = False
 		if __name__ == '__main__':

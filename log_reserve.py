@@ -28,7 +28,7 @@ def printl(s):
 
 	try:
 		with open(LOG_FILE, 'a') as fobj:
-			fobj.write(time_now + s + '\n')
+			fobj.write(time_now +  ': ' + s + '\n')
 	except Exception as e:
 		print "DEBUG wirte failed, e:",e
 #########recode_log()#######################
