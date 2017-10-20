@@ -13,9 +13,6 @@ import cPickle as pickle
 import collections
 import threading
 import Queue
-#change method of getting mails from win32com to exchangelib
-#import read_olook
-#import pythoncom 
 import read_exchange
 from log_reserve import *
 import time
@@ -59,7 +56,6 @@ MONITOR_STOP = True
 MONITOR_REC = collections.namedtuple("M_REC", "index time subject ftp download_file")
 MONITOR_REC_FILE = os.path.join(SAVE_DIR, "monitor_history.txt")
 MONITOR_REC_LIST = []
-MONITOR_REC_LIST.append(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 IS_FIND = False
 
 DOWNLOADER_ICON = os.path.join(os.path.join(os.getcwd(), "resource"),'mail.ico')
@@ -77,18 +73,16 @@ def save_bak():
 	ftp_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR, MAIL_KEYWORD, MONITOR_INTERVAL)
 	ol_bak = MY_OLOOK(EXSERVER, MAIL_ADD, AD4_ACC, AD4_PWD)
 	data_bak = DATA_BAK(ftp_bak, ol_bak)
-	printl("Save data_bak: {}".format(data_bak))
+	#printl("Save data_bak: {}".format(data_bak))
 	pickle.dump(data_bak, open(DATA_BAK_FILE,"wb"), True)
 ############save_bak()#####################
 
 
 def retrive_bak():
-	#change method of getting mails from win32com to exchangelib
-	#printl('\n'+read_olook.TIME_POINT)
-	printl('Welcome to Ftp Monitor------------------------')
+	printl('Welcome to Mail Monitor')
 	try:
 		data_bak = pickle.load(open(DATA_BAK_FILE, "rb"))
-		printl("Retrive data_bak:{}".format(data_bak))
+		#printl("Retrive data_bak:{}".format(data_bak))
 
 		HOST = data_bak.ftp_bak.host
 		PORT = data_bak.ftp_bak.port
@@ -103,10 +97,11 @@ def retrive_bak():
 		AD4_PWD = data_bak.ol_bak.pwd
 
 	except Exception as e:
-		printl("ERROR occure, e= %s" %e)
+		#printl("ERROR occure, e= %s" %e)
+		pass
 
 	else:
-		printl("Retrive success!\n")
+		#printl("Retrive success!\n")
 		return data_bak	
 	return None
 ############retrive_bak()###################
@@ -150,8 +145,6 @@ def record_monitor():
 		try:
 			with open(MONITOR_REC_FILE, 'a') as fobj:
 				for item in MONITOR_REC_LIST:
-					print("DEBUG type(item)=",type(item))
-					print(item)
 					if 'unicode' in str(type(item)):
 						item = item.encode('utf-8')
 					fobj.write(item + '\n')
@@ -170,7 +163,7 @@ def extract_ftp_info(s):
 	return 'ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents'
 	'''
 	print("Debug start extract_ftp_info")
-	ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*\r)'
+	ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*)'
 	res = re.search(ftp_re,s)
 
 	if res:
@@ -180,7 +173,7 @@ def extract_ftp_info(s):
 		port = res.group(4)
 		# '.'will match any character except '\n' so the last 
 		#character is '\r' and use [:-1] to slice off it
-		dirname = res.group(5).strip(r'\r')
+		dirname = res.group(5).strip('\r')
 
 		if not port:
 			port = '21'
@@ -235,7 +228,6 @@ def ftp_download_dir(dirname):
 	except ftplib.error_perm:
 		printl('ERROR: cannot cd to "%s"' % dirname)
 	else:
-		#printl("change diretocry into %s..." %dirname)
 		new_dir = os.path.basename(dirname)
 		if not os.path.exists(new_dir):
 			os.mkdir(new_dir)
@@ -262,7 +254,7 @@ def ftp_download_dir(dirname):
 					os.unlink(file)
 				else:
 					downloaded_number += 1
-					printl("File %s has been downloaded!" % filelines_bk[i])
+					printl("File downloaded: %s" % filelines_bk[i])
 			i += 1
 ##################download_dir()###############
 
@@ -382,7 +374,7 @@ class My_Ftp(object):
 		
 		self.parent_top = parent_top
 		self.ftp_top = Toplevel(parent_top)
-		self.ftp_top.title("Outlook Monitor")
+		self.ftp_top.title("Mail Monitor")
 		self.ftp_top.geometry('600x330+300+220')
 		self.ftp_top.iconbitmap(DOWNLOADER_ICON)
 		#self.ftp_top.attributes("-toolwindow", 1)
@@ -515,9 +507,12 @@ class My_Ftp(object):
 
 		self.pwindow_qconn.pack()
 
-		self.label_blank11 = Label(self.ftp_top,text= '  '*3).pack(side=LEFT)
+		self.fm_tip = Frame(self.ftp_top)
+		#self.label_blank11 = Label(self.fm_tip,text= '  '*3).pack(side=LEFT)
 		self.v_tip = StringVar()
-		self.label_tip = Label(self.ftp_top,textvariable=self.v_tip).pack(side=LEFT)
+		self.label_tip = Label(self.fm_tip,textvariable=self.v_tip)
+		self.label_tip.grid(row=0,column=0)
+		self.fm_tip.pack(side=LEFT)
 		#GUI finish
 
 		#######retrive data from disk#############:
@@ -530,7 +525,6 @@ class My_Ftp(object):
 			self.v_pwd.set(data_bak.ftp_bak.pwd)
 			self.v_ddirname.set(data_bak.ftp_bak.target_dir)
 			self.v_mail_k.set(data_bak.ftp_bak.mail_keyword)
-			#print("DEBUG self.v_mail_k = ",self.v_mail_k.get())
 			self.v_interval.set(data_bak.ftp_bak.interval)
 
 			self.v_exserver.set(data_bak.ol_bak.server)
@@ -604,6 +598,7 @@ class My_Ftp(object):
 
 		#extract ftp info
 		if self.v_host.get():
+
 			ftp_info = extract_ftp_info(self.v_host.get())
 			#FTP_INFO = collections.namedtuple("FTP_INFO", "HOST PORT ACC PWD DIRNAME")
 			if ftp_info:
@@ -635,10 +630,9 @@ class My_Ftp(object):
 			printl("Downloaded success and saved in dir: %s" % \
 				file_saved)
 
-			#change method of getting mails from win32com to exchangelib
 			if AUTOANA_ENABLE:
 				#send to queue for other processing, e.g.,auto search in listdir.py
-				print("DEBUG my_ftp.py send %s to auto analyse" % file_save)
+				print("DEBUG my_ftp.py send %s to auto analyse" % file_saved)
 				FTP_FILE_QUE.put(file_saved)
 
 		self.button_qconn.config(text="Direct download",bg='white',relief='raised',state='normal')
@@ -652,15 +646,13 @@ class My_Ftp(object):
 		global MONITOR_REC_FILE
 		global IS_FIND
 
-		#change method of getting mails from win32com to exchangelib
-		#pythoncom.CoInitialize() 
 		self.interval_count = 0
+		MONITOR_REC_LIST.append('')
+		MONITOR_REC_LIST.append(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+		MONITOR_REC_LIST.append("index time subject ftp download_file")
 
 		find_folder = "inbox"
 		try:
-			#change method of getting mails from win32com to exchangelib
-			#my_ol = read_olook.My_Outlook()
-			#def __init__(self, acc, pwd, ser, mail)
 			acc = self.v_csl.get()
 			pwd = self.v_cip.get()
 			ser = self.v_exserver.get()
@@ -670,8 +662,6 @@ class My_Ftp(object):
 			printl("Error outlook initialization failed, e: %s"% e)
 			return
 
-		#change method of getting mails from win32com to exchangelib
-		#my_subfolder = my_ol.find_subfolder(find_folder)
 		re_rule = re.compile(mail_keyword, re.I)
 		del_html = re.compile(r'<[^>]+>',re.S)
 
@@ -695,7 +685,8 @@ class My_Ftp(object):
 							#FTP_INFO = collections.namedtuple("FTP_INFO", "HOST PORT ACC PWD DIRNAME")
 							s = r"ftp://"+ftp_info.ACC+":"+ftp_info.PWD+"@"+ftp_info.HOST+":"+\
 							ftp_info.PORT+ftp_info.DIRNAME
-							printl("debug s = %s"% s)
+							if 'unicode' in str(type(s)):
+								s = s.encode('utf-8')
 							self.v_host.set(s)
 							file_saved = self.direct_download()
 							#record mail, time, ftp, file_saved
@@ -708,8 +699,8 @@ class My_Ftp(object):
 								d = file_saved
 							else:
 								d = r"N/A"
-							monitor_record = MONITOR_REC(str(n), t, s, f, d)
-							MONITOR_REC_LIST.append(''.join(monitor_record))
+							monitor_record = MONITOR_REC(str(n)+'.', t, s, f, d)
+							MONITOR_REC_LIST.append(',  '.join(monitor_record))
 							IS_FIND = True
 
 				time.sleep(int(self.v_interval.get()))
@@ -727,46 +718,6 @@ class My_Ftp(object):
 
 		else:
 			printl("ERROR, cannot access to the exhcange server")
-		#change method of getting mails from win32com to exchangelib
-		'''
-		if my_subfolder:
-			printl('Start monitor...')
-			while 1:
-				mail_title_list = []
-				mail_title_list = my_ol.find_mail(my_subfolder, mail_keyword)
-
-				if mail_title_list:
-					#send mail to inform user
-					#the expected mail list
-					for mail_title in mail_title_list:
-						new_dirname = os.path.join\
-						(DOWNLOAD_DIR, re_rule.search(mail_title).group(0))
-
-						saved_item_path = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, new_dirname)
-						if saved_item_path:
-							if AUTOANA_ENABLE:
-								#send to auto search
-								FTP_FILE_QUE.put(saved_item_path)
-								saved_item_path = ''
-						else:
-							printl("Download failed")
-				time.sleep(int(self.v_interval.get()))
-				interval_count += 1
-				printl("%d seconds interval..count %d" % (int(self.v_interval.get()), interval_count))
-
-				#test
-				if interval_count == 2:
-					print("Test start")
-					saved_item_path = r"C:\Users\tarzonz\Desktop\sss\ftp_download\1-6889375"
-					FTP_FILE_QUE.put(saved_item_path)
-					print("DEBUG quit monitor")
-				if MONITOR_STOP:
-					printl("Monitor stopped")
-					break
-		else:
-			printl("Error, no such folder: %s" % find_folder)
-		pythoncom.CoUninitialize()
-		'''
 		#record
 		record_monitor()
 
@@ -798,7 +749,7 @@ class My_Ftp(object):
 			self.button_monitor.config(text="Stopping..",bg='orange', relief='sunken',state='disable')
 			terminate_threads(MONITOR_THREADS)
 			printl("Monitor is terminated")
-			
+
 			record_monitor()
 
 			self.button_monitor.config(text="Start monitor",bg='white',relief='raised',state='normal')
@@ -881,7 +832,7 @@ class My_Ftp(object):
 		else:
 			pass
 
-		printl('Bye---------------------------------------'+'\n')
+		printl('Bye~'+'\n')
 		ASK_QUIT = True
 		self.running = False
 		if __name__ == '__main__':
