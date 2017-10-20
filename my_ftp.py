@@ -17,6 +17,7 @@ import read_olook
 from log_reserve import *
 import time
 import pythoncom 
+import tooltip
 
 
 HOST = '135.242.80.16'
@@ -320,7 +321,7 @@ class My_Ftp(object):
 		self.parent_top = parent_top
 		self.ftp_top = Toplevel(parent_top)
 		self.ftp_top.title("Outlook Monitor")
-		self.ftp_top.geometry('600x400+300+220')
+		self.ftp_top.geometry('600x330+300+220')
 		self.ftp_top.iconbitmap(DOWNLOADER_ICON)
 		#self.ftp_top.attributes("-toolwindow", 1)
 		#self.ftp_top.wm_attributes('-topmost',1)
@@ -331,20 +332,22 @@ class My_Ftp(object):
 		self.pwindow_qconn = ttk.Panedwindow(self.ftp_top, orient=VERTICAL)
 
 		self.lframe_qconn = ttk.Labelframe(self.ftp_top, text='Direct Download',\
-		 width= 620, height = 420)
+		 width= 620, height = 220)
 		self.lframe_autoconn = ttk.Labelframe(self.ftp_top, text='Auto Download',\
-		 width= 620, height = 620)
-		self.lframe_outacc = ttk.Labelframe(self.ftp_top, text='Outlook Account',\
-		 width= 620, height = 420)
+		 width= 620, height = 220)
+		#self.lframe_outacc = ttk.Labelframe(self.ftp_top, text='Outlook Account',\
+		# width= 620, height = 420)
 		self.pwindow_qconn.add(self.lframe_qconn)
 		self.pwindow_qconn.add(self.lframe_autoconn)
-		self.pwindow_qconn.add(self.lframe_outacc)
+		#self.pwindow_qconn.add(self.lframe_outacc)
 
 		#Host label and entry
 		self.label_host = Label(self.lframe_qconn, text = 'Host:').grid(row=0,column=0)
 		self.v_host = StringVar()
 		self.entry_host = Entry(self.lframe_qconn, textvariable=self.v_host,width=20)
 		self.entry_host.grid(row=0,column=1)
+		ts ="Input a ftp format, for example:\n ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents\n then click 'Direct download' to download files in this directory"
+		tooltip.ToolTip(self.entry_host, msg=None, msgFunc=lambda : ts, follow=True, delay=0.2)
 
 		#Port label and entry
 		self.label_port = Label(self.lframe_qconn, text = '   Port:').grid(row=0,column=2)
@@ -377,53 +380,19 @@ class My_Ftp(object):
 		self.button_qconn.grid(row=2,column=3)
 
 		#############Auto download###############
-		self.fm_up = Frame(self.lframe_autoconn)
-		s1 = "Enable 'Inbox' mail monitor function to automatically"
-		s2 = " "
-		s3 ="ftp download files based on mail title"
-		s = s1+s2+s3
 
+		self.fm_up = Frame(self.lframe_autoconn)
+		s1 = "Monitor 'Inbox' to automatically download files"
+		s2 = " "
+		s3 ="based on ftp information in mail with specified title"
+		s = s1+s2+s3
 		self.v_chk = BooleanVar() 
 		self.chk_auto = Checkbutton(self.fm_up, text = s, variable = self.v_chk,\
-			command = self.periodical_check).pack()
-		self.label_mail = Label(self.fm_up, text = 'Mail Title Keyword:    ')
-		self.label_mail.pack(side=LEFT)
-		##########mail_keyword###########
-		self.v_mail = StringVar()
-		self.entry_mail = Entry(self.fm_up, textvariable=self.v_mail,width=32)
-		self.entry_mail.pack(side=LEFT)
-
-		self.label_blank0 = Label(self.fm_up,text= ' '*20).pack(side = 'left')
-		#button trigger monitor mails' titles
-		self.button_monitor = Button(self.fm_up, text="Start monitor",\
-		 command=self.start_thread_monitor, activeforeground\
-		='white', activebackground='orange',bg = 'white', relief='raised', width=20)
-		self.button_monitor.pack()
-
-
-		self.fm_down = Frame(self.lframe_autoconn)
-		self.label_new = Label(self.fm_down, \
-			text = "New Dirname: ",justify='left')
-		self.label_new.pack(side=LEFT)
-
-		self.v_new_dirname = StringVar()
-		self.label_new_dirname = Label(self.fm_down, \
-			textvariable=self.v_new_dirname, width = 40)
-		self.label_new_dirname.pack(side = 'left')
-
-		Label(self.fm_down,text= ' '*15).pack(side = 'left')
-		self.label_interval = Label(self.fm_down,text= 'interval')
-		self.label_interval.pack(side = 'left')
-		self.v_interval = StringVar()
-		self.spin_interval = Spinbox(self.fm_down, \
-			textvariable=self.v_interval,width = 8, from_=1, to=8640,increment=1)
-		self.spin_interval.pack(side=LEFT)
-		#self.label_blank10 = Label(self.fm_down,text= ' '*0).pack()
+			command = self.periodical_check)
+		self.chk_auto.pack()
 		self.fm_up.pack()
-		self.fm_down.pack()
 
-		#for read exchanger configuration
-		self.fm_config = Frame(self.lframe_outacc)
+		self.fm_config = Frame(self.lframe_autoconn,height=50)
 
 		#exchange serveHost label and entry
 		self.label_exserver = Label(self.fm_config, text = 'Exchange Server:')
@@ -435,12 +404,12 @@ class My_Ftp(object):
 		#Mail Address label and entry
 		self.label_mail_add = Label(self.fm_config, text = '  Mail Address:')
 		self.label_mail_add.grid(row=0,column=2)	
-		self.v_mail_add = StringVar()
-		self.entry_mail_add = Entry(self.fm_config, textvariabl=self.v_mail_add, width=29)
+		self.v_mail_k_add = StringVar()
+		self.entry_mail_add = Entry(self.fm_config, textvariabl=self.v_mail_k_add, width=29)
 		self.entry_mail_add.grid(row=0,column=3)
 
 		#Domain//Usrnamer label and entry
-		self.label_csl = Label(self.fm_config, text = 'Domain/csl:',justify = LEFT)
+		self.label_csl = Label(self.fm_config, text = 'Domain/CSL:',justify = LEFT)
 		self.label_csl.grid(row=1,column=0)
 		self.v_csl = StringVar()
 		self.entry_csl = Entry(self.fm_config, textvariabl=self.v_csl, width=27)
@@ -453,12 +422,37 @@ class My_Ftp(object):
 		self.entry_cip = Entry(self.fm_config, show = "*",textvariabl=self.v_cip, width=29)
 		self.entry_cip.grid(row=1,column=3)
 
+		#mail title keyword
+		self.label_mail_k = Label(self.fm_config, text = 'Mail Title Keyword:')
+		self.label_mail_k.grid(row=2,column=0)
+		self.v_mail_k = StringVar()
+		self.entry_mail_k = Entry(self.fm_config, textvariable=self.v_mail_k,width=27)
+		self.entry_mail_k.grid(row=2,column=1)
+
+		self.label_interval = Label(self.fm_config,text= 'Monitor Interval(sec):')
+		self.label_interval.grid(row=2,column=2)
+		self.v_interval = StringVar()
+		self.spin_interval = Spinbox(self.fm_config, textvariable=self.v_interval,\
+			width = 8, from_=1, to=8640,increment=1)
+		self.spin_interval.grid(row=2,column=3)	
+
 		self.fm_config.pack()
+
+		self.fm_mid = Frame(self.lframe_autoconn, height=50)
+		#button trigger monitor mails' titles
+		self.button_monitor = Button(self.fm_mid, text="Start monitor",\
+		 command=self.start_thread_monitor, activeforeground\
+		='white', activebackground='orange',bg = 'white', relief='raised', width=20)
+		self.button_monitor.pack()#grid(row=1,column=3)
+		self.fm_mid.pack()
+		#for read exchanger configuration
+
 		self.pwindow_qconn.pack()
 
 		self.label_blank11 = Label(self.ftp_top,text= '  '*3).pack(side=LEFT)
 		self.v_tip = StringVar()
 		self.label_tip = Label(self.ftp_top,textvariable=self.v_tip).pack(side=LEFT)
+		#GUI finish
 
 		#######retrive data from disk#############:
 		data_bak = retrive_bak()
@@ -469,11 +463,11 @@ class My_Ftp(object):
 			self.v_user.set(data_bak.ftp_bak.user)
 			self.v_pwd.set(data_bak.ftp_bak.pwd)
 			self.v_ddirname.set(data_bak.ftp_bak.target_dir)
-			self.v_mail.set(data_bak.ftp_bak.mail_keyword)
+			self.v_mail_k.set(data_bak.ftp_bak.mail_keyword)
 			self.v_interval.set(data_bak.ftp_bak.interval)
 
 			self.v_exserver.set(data_bak.ol_bak.server)
-			self.v_mail_add.set(data_bak.ol_bak.mail)
+			self.v_mail_k_add.set(data_bak.ol_bak.mail)
 			self.v_csl.set(data_bak.ol_bak.user)
 			self.v_cip.set(data_bak.ol_bak.pwd)
 		else:
@@ -482,15 +476,14 @@ class My_Ftp(object):
 			self.v_user.set(ACC)
 			self.v_pwd.set(PWD)
 			self.v_ddirname.set(DOWNLOAD_DIR)	
-			self.v_mail.set(MAIL_KEYWORD)
+			self.v_mail_k.set(MAIL_KEYWORD)
 			self.v_interval.set(MONITOR_INTERVAL)
 
 			self.v_exserver.set(EXSERVER)
-			self.v_mail_add.set(MAIL_ADD)
+			self.v_mail_k_add.set(MAIL_ADD)
 			self.v_csl.set(AD4_ACC)
 			self.v_cip.set(AD4_PWD)
 		#######retrive data from disk#############:
-		self.v_new_dirname.set(self.v_ddirname.get() +'/'+ self.v_mail.get())
 		self.periodical_check()
 
 		self.t_tip = threading.Thread(target=self.start_progress_tip)
@@ -577,7 +570,7 @@ class My_Ftp(object):
 		self.button_qconn.config(text="Direct download",bg='white',relief='raised',state='normal')
 	##############direct_download()##################
 
-
+	#revise with read_exchange
 	def start_monitor(self, mail_keyword):
 
 		pythoncom.CoInitialize() 
@@ -643,9 +636,8 @@ class My_Ftp(object):
 		global MAIL_KEYWORD
 		global MONITOR_STOP
 
-		self.v_new_dirname.set(self.v_ddirname.get() +'/'+ self.v_mail.get())
-		if self.v_mail.get():
-			MAIL_KEYWORD = self.v_mail.get()
+		if self.v_mail_k.get():
+			MAIL_KEYWORD = self.v_mail_k.get()
 
 		self.button_monitor.config(text="Click to stop",bg='orange', relief='sunken',state='normal')
 
@@ -665,12 +657,10 @@ class My_Ftp(object):
 	def periodical_check(self):
 		global AUTOANA_ENABLE
 		if self.v_chk.get() == 1:
-			printl("periodical auto download and search enabled")
-			self.entry_mail.config(state='normal')
+			printl("Enable periodical monitor")
+			self.entry_mail_k.config(state='normal')
 			self.button_monitor.config(state='normal')
-			self.label_mail.config(state='normal')
-			self.label_new.config(state='normal')
-			self.label_new_dirname.config(state='normal')
+			self.label_mail_k.config(state='normal')
 			self.spin_interval.config(state='normal')
 			self.label_interval.config(state='normal')
 			AUTOANA_ENABLE = True
@@ -685,12 +675,10 @@ class My_Ftp(object):
 			self.entry_cip.config(state='normal')
 
 		else:
-			printl("periodical auto download and search disabled")
-			self.entry_mail.config(state='disable')
+			#printl("Periodical monitor disabled")
+			self.entry_mail_k.config(state='disable')
 			self.button_monitor.config(state='disable')
-			self.label_mail.config(state='disable')
-			self.label_new.config(state='disable')
-			self.label_new_dirname.config(state='disable')
+			self.label_mail_k.config(state='disable')
 			self.spin_interval.config(state='disable')
 			self.label_interval.config(state='disable')
 			AUTOANA_ENABLE = False
@@ -729,11 +717,11 @@ class My_Ftp(object):
 			ACC = self.v_user.get()
 			PWD = self.v_pwd.get()
 			DOWNLOAD_DIR = self.v_ddirname.get()
-			MAIL_KEYWORD = self.v_mail.get()
+			MAIL_KEYWORD = self.v_mail_k.get()
 			MONITOR_INTERVAL = self.v_interval.get()
 
 			EXSERVER = self.v_exserver.get()
-			MAIL_ADD = self.v_mail_add.get()
+			MAIL_ADD = self.v_mail_k_add.get()
 			AD4_ACC = self.v_csl.get()
 			self.v_cip.set('')
 			AD4_PWD = self.v_cip.get()
