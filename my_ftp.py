@@ -50,6 +50,11 @@ FTP_INFO = collections.namedtuple("FTP_INFO", "HOST PORT ACC PWD DIRNAME")
 #all the data to be backup
 DATA_BAK = collections.namedtuple("DATA_BAK", "ftp_bak ol_bak")
 
+DIRECT_DOWNLOAD_STOP = True
+DIRECT_DOWNLOAD_THREADS = []
+DIRECT_DOWNLOAD_TOTAL = 0
+DIRECT_DOWNLOAD_COUNT = 0
+
 AUTOANA_ENABLE = False
 MONITOR_THREADS = []
 MONITOR_STOP = True
@@ -62,7 +67,6 @@ DOWNLOADER_ICON = os.path.join(os.path.join(os.getcwd(), "resource"),'mail.ico')
 
 file_number = 0
 dir_number = 0
-downloaded_number = 0
 
 ASK_QUIT = False
 
@@ -163,9 +167,6 @@ def ftp_conn(host, port, acc, pwd):
 	printl('ftp_conn start, host:{0}, port:{1}, acc:{2}, pwd:{3}'\
 		.format(host,port,acc,pwd))
 
-	print("DEBUG type(host)=",type(host))
-	print("DEBUG type(acc)=",type(acc))
-	print("DEBUG type(pwd)=",type(pwd))
 	try:
 		CONN = ftplib.FTP()
 		CONN.connect(host, port)
@@ -187,9 +188,11 @@ def ftp_conn(host, port, acc, pwd):
 
 
 def ftp_download_dir(dirname):
-	global downloaded_number
+	global CONN
+	global DIRECT_DOWNLOAD_COUNT
+	global DIRECT_DOWNLOAD_TOTAL
 
-	printl('Download start, dirname = %s' % dirname)
+	print('ftp_download_dir start, dirname = %s' % dirname)
 	try:
 		CONN.cwd(dirname)
 	except ftplib.error_perm:
@@ -207,11 +210,11 @@ def ftp_download_dir(dirname):
 		i = 0
 		for file in filelines:
 			#<DIR> display in widows and dxxx in linux
+			#here maybe a bug if only a file with name 'dxxxx'
 			if '<DIR>' in file or file.startswith('d'):
 				ftp_download_dir(filelines_bk[i])
 				CONN.cwd('..')
 				os.chdir('..')
-				#print("back to upper directory to download....")
 			else:
 				try:
 					CONN.retrbinary('RETR %s' % filelines_bk[i], \
@@ -220,14 +223,14 @@ def ftp_download_dir(dirname):
 					printl('ERROR: cannot read file "%s"' % file)
 					os.unlink(file)
 				else:
-					downloaded_number += 1
-					printl("File downloaded: %s" % filelines_bk[i])
+					DIRECT_DOWNLOAD_COUNT += 1
+					printl("[%d/%d]downloaded: %s" % \
+						(DIRECT_DOWNLOAD_COUNT, DIRECT_DOWNLOAD_TOTAL, filelines_bk[i]))
 			i += 1
 ##################download_dir()###############
 
 def get_file_number(dirname):
-	global file_number
-	global dir_number
+	global DIRECT_DOWNLOAD_TOTAL
 	global CONN
 
 	try:
@@ -236,10 +239,14 @@ def get_file_number(dirname):
 		printl('ERROR: cannot cd to "%s"' % dirname)
 		return None
 	else:
+
+		'''
 		new_dir = os.path.basename(dirname)
 		if not os.path.exists(new_dir):
 			os.mkdir(new_dir)
 		os.chdir(new_dir)
+		'''
+
 		filelines = []
 		CONN.dir(filelines.append)
 		filelines_bk = CONN.nlst()
@@ -247,20 +254,20 @@ def get_file_number(dirname):
 	
 		for file in filelines:
 			if '<DIR>' in file:
-				dir_number += 1
 				get_file_number(filelines_bk[i])
 				CONN.cwd('..')
 			else:
-				file_number += 1
+				DIRECT_DOWNLOAD_TOTAL += 1
 			i += 1
-
-	return dir_number, file_number
 #############get_file_number()###############
 
 
 def my_download(host, port, acc, pwd, save_dir, download_dir):
-	global downloaded_number
 	global CONN
+	global DIRECT_DOWNLOAD_TOTAL
+	global DIRECT_DOWNLOAD_COUNT
+	global file_number
+	global dir_number
 
 	#if this file had been downloaded, quit
 	down_name = os.path.basename(download_dir)
@@ -276,16 +283,20 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 		return None
 
 	printl("Calculating the download files number...")
-	m,n = get_file_number(download_dir)
-	if m == None:
+	DIRECT_DOWNLOAD_TOTAL = 0
+	DIRECT_DOWNLOAD_COUNT = 0
+	get_file_number(download_dir)
+	if DIRECT_DOWNLOAD_TOTAL == 0:
 		return None
-	printl("Total %d files, %d folders to be downloaded" % (n, m))
+	printl("Total %d files to be downloaded" % (DIRECT_DOWNLOAD_TOTAL))
 	ftp_download_dir(download_dir)
 	CONN.quit()
 
-	if n == downloaded_number:
-		printl("All files in {} have been downloaded successfully!".\
-			format(download_dir))
+	if DIRECT_DOWNLOAD_TOTAL == DIRECT_DOWNLOAD_COUNT:
+		printl("All {} files downloaded successfully!".\
+			format(DIRECT_DOWNLOAD_COUNT))
+	else:
+		printl("DEBUG error, download number mismatch")
 
 	return os.path.join(save_dir,os.path.basename(download_dir))
 #############my_download()########
@@ -378,18 +389,18 @@ class My_Ftp(object):
 
 		self.pwindow_qconn = ttk.Panedwindow(self.ftp_top, orient=VERTICAL)
 
-		self.lframe_qconn = ttk.Labelframe(self.ftp_top, text='Direct Download',\
+		self.lframe_direct = ttk.Labelframe(self.ftp_top, text='Direct Download',\
 		 width= 620, height = 220)
-		self.lframe_autoconn = ttk.Labelframe(self.ftp_top, text='Auto Download',\
+		self.lframe_monitor = ttk.Labelframe(self.ftp_top, text='Auto Download',\
 		 width= 620, height = 220)
 
-		self.pwindow_qconn.add(self.lframe_qconn)
-		self.pwindow_qconn.add(self.lframe_autoconn)
+		self.pwindow_qconn.add(self.lframe_direct)
+		self.pwindow_qconn.add(self.lframe_monitor)
 
 		#Host label and entry
-		self.label_host = Label(self.lframe_qconn, text = 'Ftp Host:').grid(row=0,column=0)
+		self.label_host = Label(self.lframe_direct, text = 'Ftp Host:').grid(row=0,column=0)
 		self.v_host = StringVar()
-		self.entry_host = Entry(self.lframe_qconn, textvariable=self.v_host,width=50)
+		self.entry_host = Entry(self.lframe_direct, textvariable=self.v_host,width=50)
 		self.entry_host.grid(row=0,column=1)
 		ts1 ="Either input an ip:port address or a full ftp url:\n ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/"
 		ts2 ="01_Training/02_PMU/02_Documents\n then click 'Direct download' to download files in this directory"
@@ -397,39 +408,39 @@ class My_Ftp(object):
 		tooltip.ToolTip(self.entry_host, msg=None, msgFunc=lambda : ts, follow=True, delay=0.2)
 
 		#Port label and entry
-		self.label_port = Label(self.lframe_qconn, text = 'Port:')
+		self.label_port = Label(self.lframe_direct, text = 'Port:')
 		#self.label_port.grid(row=0,column=2)
 		self.v_port = StringVar()
-		self.entry_port = Entry(self.lframe_qconn, textvariabl=self.v_port, width=20)
+		self.entry_port = Entry(self.lframe_direct, textvariabl=self.v_port, width=20)
 		#self.entry_port.grid(row=0,column=3)
 
 		#Usrnamer label and entry
-		self.label_user = Label(self.lframe_qconn, text = 'Username:').grid(row=0,column=2)
+		self.label_user = Label(self.lframe_direct, text = 'Username:').grid(row=0,column=2)
 		self.v_user = StringVar()
-		self.entry_user = Entry(self.lframe_qconn, textvariabl=self.v_user, width=20)
+		self.entry_user = Entry(self.lframe_direct, textvariabl=self.v_user, width=20)
 		self.entry_user.grid(row=0,column=3)
 
 		#Password label and entry
-		self.label_pwd = Label(self.lframe_qconn, text = 'Password:').grid(row=1,column=2)
+		self.label_pwd = Label(self.lframe_direct, text = 'Password:').grid(row=1,column=2)
 		self.v_pwd = StringVar()
-		self.entry_pwd = Entry(self.lframe_qconn, textvariabl=self.v_pwd, width=20)
+		self.entry_pwd = Entry(self.lframe_direct, textvariabl=self.v_pwd, width=20)
 		self.entry_pwd.grid(row=1,column=3)
 
 		#Download dirname
-		self.label_ddirname = Label(self.lframe_qconn, text = 'Dirname:').grid(row=1,column=0)
+		self.label_ddirname = Label(self.lframe_direct, text = 'Dirname:').grid(row=1,column=0)
 		self.v_ddirname = StringVar()
-		self.entry_ddirname = Entry(self.lframe_qconn, textvariabl=self.v_ddirname, width=50)
+		self.entry_ddirname = Entry(self.lframe_direct, textvariabl=self.v_ddirname, width=50)
 		self.entry_ddirname.grid(row=1,column=1)
 
 		#Download button
-		self.button_qconn = Button(self.lframe_qconn,text="Direct dowload",\
-			width=20, command=self.thread_ftp, activeforeground='white', \
+		self.button_direct = Button(self.lframe_direct,text="Direct dowload",\
+			width=20, command=self.start_direct_download, activeforeground='white', \
 			activebackground='orange',bg = 'white', relief='raised')
-		self.button_qconn.grid(row=2,column=3)
+		self.button_direct.grid(row=2,column=3)
 
 		#############Auto download###############
 
-		self.fm_up = Frame(self.lframe_autoconn)
+		self.fm_up = Frame(self.lframe_monitor)
 		s1 = "Monitor 'Inbox' to automatically download files"
 		s2 = " "
 		s3 ="based on ftp information in mail with specified title"
@@ -440,7 +451,7 @@ class My_Ftp(object):
 		self.chk_auto.pack()
 		self.fm_up.pack()
 
-		self.fm_config = Frame(self.lframe_autoconn,height=50)
+		self.fm_config = Frame(self.lframe_monitor,height=50)
 
 		#exchange serveHost label and entry
 		self.label_exserver = Label(self.fm_config, text = 'Exchange Server:')
@@ -490,7 +501,7 @@ class My_Ftp(object):
 
 		self.fm_config.pack()
 
-		self.fm_mid = Frame(self.lframe_autoconn, height=50)
+		self.fm_mid = Frame(self.lframe_monitor, height=50)
 		#button trigger monitor mails' titles
 		self.button_monitor = Button(self.fm_mid, text="Start monitor",\
 		 command=self.start_thread_monitor, activeforeground\
@@ -643,14 +654,26 @@ class My_Ftp(object):
 	########start_progess_tip###########
 
 
-	def thread_ftp(self):
+	def start_direct_download(self):
+		global DIRECT_DOWNLOAD_STOP
+		global DIRECT_DOWNLOAD_THREADS
 
-		self.button_qconn.config(text="Please wait",bg='orange',relief='sunken',state='disabled')
+		self.button_direct.config(text="Click to stop...",bg='orange',relief='sunken',state='normal')
 		
-		t = threading.Thread(target=self.direct_download)
-		#l_threads.append(t)
-		t.start()
-	##########thread_ftp()###################
+		if DIRECT_DOWNLOAD_STOP:
+			DIRECT_DOWNLOAD_STOP = False
+
+			t = threading.Thread(target=self.direct_download)
+			DIRECT_DOWNLOAD_THREADS.append(t)
+			t.start()
+		else:
+			DIRECT_DOWNLOAD_STOP = True
+			self.button_direct.config(text="Stopping..",bg='orange', relief='sunken',state='disable')
+			terminate_threads(DIRECT_DOWNLOAD_THREADS)
+			printl("Direct Download is terminated")
+			self.button_direct.config(text="Direct download",bg='white',relief='raised',state='normal')
+
+	##########start_direct_download()###################
 	
 
 	def direct_download(self):
@@ -695,7 +718,7 @@ class My_Ftp(object):
 			#crash
 			#showerror(title='Ftp Connect Error', message="Cannot accesst to %s" % HOST)
 		else:
-			printl("Downloaded success and saved in dir: %s" % \
+			printl("Download completed in: %s" % \
 				file_saved)
 
 			if AUTOANA_ENABLE:
@@ -703,7 +726,8 @@ class My_Ftp(object):
 				print("DEBUG my_ftp.py send %s to auto analyse" % file_saved)
 				FTP_FILE_QUE.put(file_saved)
 
-		self.button_qconn.config(text="Direct download",bg='white',relief='raised',state='normal')
+		DIRECT_DOWNLOAD_STOP = True
+		self.button_direct.config(text="Direct download",bg='white',relief='raised',state='normal')
 
 		return file_saved
 	##############direct_download()##################
@@ -788,7 +812,7 @@ class My_Ftp(object):
 			printl("ERROR, cannot access to the exhcange server")
 		#record
 		record_monitor()
-
+		MONITOR_STOP = True
 		self.button_monitor.config(text="Start monitor",bg='white',relief='raised',state='normal')
 	#############start_monitor()#############
 
@@ -880,7 +904,7 @@ class My_Ftp(object):
 
 		global ASK_QUIT
 
-		if askyesno("Tip","Save or not?"):
+		if askyesno("Tip","Save current configurations?"):
 			#save
 			HOST = self.v_host.get()
 			PORT = self.v_port.get()

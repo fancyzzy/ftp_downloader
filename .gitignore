@@ -7,3 +7,4 @@
 *.pyc
 my_ftp.log
 ftp_download/*
+my_ftp_saves/*
