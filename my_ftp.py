@@ -14,7 +14,9 @@ import collections
 import threading
 import Queue
 import read_exchange
-from log_reserve import *
+from log_reserve import FTP_TIP_QUE as FTQ
+from log_reserve import printl
+from log_reserve import FTP_SAVES
 import time
 import datetime
 import tooltip
@@ -68,8 +70,7 @@ DOWNLOADER_ICON = os.path.join(os.path.join(os.getcwd(), "resource"),'mail.ico')
 file_number = 0
 dir_number = 0
 
-ASK_QUIT = False
-
+PROGRESS_THREADS = []
 FTP_FILE_QUE = Queue.Queue()
 
 
@@ -353,17 +354,17 @@ class My_Ftp(object):
 		global MAIL_ADD
 		global AD4_ACC
 		global AD4_PWD
+		global PROGRESS_THREADS
 		
 		self.parent_top = parent_top
 		self.ftp_top = Toplevel(parent_top)
 		self.ftp_top.title("Mail Monitor")
-		self.ftp_top.geometry('660x330+300+220')
+		self.ftp_top.geometry('600x330+300+220')
 		self.ftp_top.iconbitmap(DOWNLOADER_ICON)
 		#self.ftp_top.attributes("-toolwindow", 1)
 		#self.ftp_top.wm_attributes('-topmost',1)
 		self.ftp_top.protocol("WM_DELETE_WINDOW",lambda :self.ask_quit(self.ftp_top))
 		self.running = True
-
 
 		#Label(self.ftp_top, text='').pack()
 		#Label(self.ftp_top, text='').pack()
@@ -388,7 +389,6 @@ class My_Ftp(object):
 		self.l_savein.pack(side=LEFT)
 		self.entry_savein.pack(side=LEFT)
 		self.dir_fm.pack()	
-
 
 
 		self.pwindow_qconn = ttk.Panedwindow(self.ftp_top, orient=VERTICAL)
@@ -558,8 +558,10 @@ class My_Ftp(object):
 		#######retrive data from disk#############:
 		self.periodical_check()
 
-		self.t_tip = threading.Thread(target=self.start_progress_tip)
-		self.t_tip.start()
+		t_progress_tip = threading.Thread(target=self.start_progress_tip)
+		t_progress_tip.start()
+		PROGRESS_THREADS.append(t_progress_tip)
+
 
 		
 		##############init()###############
@@ -636,13 +638,16 @@ class My_Ftp(object):
 
 
 	def start_progress_tip(self):
-		global FTP_TIP_QUE 
-		global ASK_QUIT
+		global FTQ  
 
-		print "start_progress_tip begin!"
+		print "ftp start_progress_tip begin"
 		while 1:
+			print("DEBUG progress is undergoing")
+			#time.sleep(2)
 			try:
-				s = FTP_TIP_QUE.get(False)
+				#block = False means if queue is empty
+				#then get an exception
+				s = FTQ.get(False)
 				self.v_tip.set(s)
 			except Exception as e:
 				#print("queue is empty, e %s" % e)
@@ -650,10 +655,12 @@ class My_Ftp(object):
 
 			time.sleep(0.4)
 
-			if ASK_QUIT and FTP_TIP_QUE.empty():
+			# BUG16 here can't use global to determine
+			if not self.running:
 				self.v_tip.set("Exited..")
+				print("not running")
 				break
-		print "start_progress_tip done!"
+		print "ftp start_progress_tip end!"
 
 	########start_progess_tip###########
 
@@ -759,6 +766,7 @@ class My_Ftp(object):
 			my_ol = read_exchange.MY_OUTLOOK(acc, pwd, ser, mail)
 		except Exception as e:
 			printl("Error outlook initialization failed, e: %s"% e)
+			printl("DEBUG acc:{},pwd:{},ser:{},mail:{}".format(acc,pwd,ser,mail))
 			return
 
 		re_rule = re.compile(mail_keyword, re.I)
@@ -916,7 +924,7 @@ class My_Ftp(object):
 		global AD4_ACC
 		global AD4_PWD
 
-		global ASK_QUIT
+		global FTQ
 
 		if askyesno("Tip","Save current configurations?"):
 			#save
@@ -939,12 +947,20 @@ class My_Ftp(object):
 			pass
 
 		printl('Bye~'+'\n')
-		ASK_QUIT = True
 		self.running = False
+		FTP_FILE_QUE.put('ftp quit')
+
+		#terminate progress threads
+		#crash don't know why
+		#terminate_threads(PROGRESS_THREADS)
+
 		if __name__ == '__main__':
 			#quit() all windows and parent window to be closed
 			ftp_top.quit()
 		else:
+			#important remember to do these stuffs before destruction!
+			#Even though the window is destoyed, thease globals still in ram
+			FTQ.queue.clear()
 			#derstroy only this window
 			ftp_top.destroy()
 
