@@ -168,10 +168,6 @@ def ftp_conn(host, port, acc, pwd):
 	printl('ftp_conn start, host:{0}, port:{1}, acc:{2}, pwd:{3}'\
 		.format(host,port,acc,pwd))
 
-	print("DEBUG type(host)",type(host))
-	print("DEBUG type(prot)",type(port))
-	print("DEBUG type(acc)",type(acc))
-	print("DEBUG type(pwd)",type(pwd))
 	try:
 		CONN = ftplib.FTP()
 		CONN.connect(host, port)
@@ -203,6 +199,7 @@ def ftp_download_dir(dirname):
 	except ftplib.error_perm:
 		printl('ERROR: cannot cd to "%s"' % dirname)
 	else:
+
 		new_dir = os.path.basename(dirname)
 		if not os.path.exists(new_dir):
 			os.mkdir(new_dir)
@@ -274,12 +271,13 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	global file_number
 	global dir_number
 
-	#if this file had been downloaded, quit
 	down_name = os.path.basename(download_dir)
 
 	printl("my_download starts")
+	#if this file had been downloaded, quit
+	printl("Check exists of dir: %s"%(os.path.join(save_dir,down_name)))
 	if os.path.exists(os.path.join(save_dir,down_name)):
-		printl("file already exsit:%s"% os.path.join(save_dir,down_name))
+		printl("Dir already exsit:%s, quit download."% os.path.join(save_dir,down_name))
 		return None
 
 	os.chdir(save_dir)
@@ -287,7 +285,7 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	if not ftp_conn(host, port, acc, pwd):
 		return None
 
-	printl("Calculating the download files number...")
+	printl("A new download dir, now calculating files number...")
 	DIRECT_DOWNLOAD_TOTAL = 0
 	DIRECT_DOWNLOAD_COUNT = 0
 	get_file_number(download_dir)
@@ -377,11 +375,12 @@ class My_Ftp(object):
 
 		
 		self.dir_fm = Frame(self.ftp_top)
+		self.v_saved_number =  0
 		self.l_savein = Label(self.dir_fm, text="Save in: ")
 		self.v_savein = StringVar()
-		self.entry_savein = Entry(self.dir_fm, width=67, textvariable=self.v_savein)
+		self.entry_savein = Entry(self.dir_fm, width=66, textvariable=self.v_savein)
 		self.v_savein.set(SAVE_DIR)
-		self.entry_savein.config(state='disabled')
+		#self.entry_savein.config(state='disabled')
 
 		self.b_savein = Button(self.dir_fm, text='Choose directory', command=self.choose_dir, activeforeground\
 			='white', activebackground='orange')
@@ -697,6 +696,7 @@ class My_Ftp(object):
 		global DIRECT_DOWNLOAD_STOP
 		printl("Direct_download starts")
 
+
 		#extract ftp info
 		if self.v_host.get():
 
@@ -718,6 +718,10 @@ class My_Ftp(object):
 		if self.v_pwd.get():
 			PWD = self.v_pwd.get()
 		if self.v_ddirname.get():
+			#get rid of the last '/' if had
+			self.v_ddirname.set(self.v_ddirname.get().strip())
+			if self.v_ddirname.get()[-1] == '/':
+				self.v_ddirname.set(self.v_ddirname.get()[:-1])
 			DOWNLOAD_DIR = self.v_ddirname.get()
 
 		#set host to display as ip:port format
@@ -809,11 +813,18 @@ class My_Ftp(object):
 								f = ''.join(ftp_info)
 								if file_saved:
 									d = file_saved
+									monitor_record = MONITOR_REC(str(n)+'.', t, s, f, d)
+									#MONITOR_REC_LIST.append(',  '.join(monitor_record))
+									MONITOR_REC_LIST.append(str(monitor_record))
+									IS_FIND = True
+									self.v_saved_number += 1
+									self.l_savein.config(text='%s'%(str(self.v_saved_number) + ' Saved in: '), bg='orange')
 								else:
-									d = r"N/A"
-								monitor_record = MONITOR_REC(str(n)+'.', t, s, f, d)
-								MONITOR_REC_LIST.append(',  '.join(monitor_record))
-								IS_FIND = True
+									#if no problem in dowloading process,
+									#this is probably an replied mail cotaining old mail's ftp url
+									#then nothing to do with this
+									pass
+								
 							else:
 								printl("Error, another direct download is under processing, you can't start download this!")
 
