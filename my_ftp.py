@@ -131,14 +131,14 @@ def terminate_threads(l_threads):
 	'''
 	强制终止线程
 	'''
-	print "DEBUG start terminate threads: {}".format(l_threads)
+	#print "DEBUG start terminate threads: {}".format(l_threads)
 	if l_threads:
 		for t in l_threads:
 			if t.is_alive():
 				_async_raise(t.ident, SystemExit)
 	#clear the thread list
 	l_threads[:] = []
-	print "terminate threads done"
+	#print "terminate threads done"
 ################terminate_threads()##########################
 
 
@@ -642,7 +642,7 @@ class My_Ftp(object):
 
 		print "ftp start_progress_tip begin"
 		while 1:
-			print("DEBUG progress is undergoing")
+			#print("DEBUG progress is undergoing")
 			#time.sleep(2)
 			try:
 				#block = False means if queue is empty
@@ -946,7 +946,7 @@ class My_Ftp(object):
 		else:
 			pass
 
-		printl('Bye~'+'\n')
+		printl('Mail Monitor: Bye~'+'\n')
 		self.running = False
 		FTP_FILE_QUE.put('ftp quit')
 
