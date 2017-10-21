@@ -167,6 +167,10 @@ def ftp_conn(host, port, acc, pwd):
 	printl('ftp_conn start, host:{0}, port:{1}, acc:{2}, pwd:{3}'\
 		.format(host,port,acc,pwd))
 
+	print("DEBUG type(host)",type(host))
+	print("DEBUG type(prot)",type(port))
+	print("DEBUG type(acc)",type(acc))
+	print("DEBUG type(pwd)",type(pwd))
 	try:
 		CONN = ftplib.FTP()
 		CONN.connect(host, port)
@@ -504,7 +508,7 @@ class My_Ftp(object):
 		self.fm_mid = Frame(self.lframe_monitor, height=50)
 		#button trigger monitor mails' titles
 		self.button_monitor = Button(self.fm_mid, text="Start monitor",\
-		 command=self.start_thread_monitor, activeforeground\
+		 command=self.start_monitor_download, activeforeground\
 		='white', activebackground='orange',bg = 'white', relief='raised', width=20)
 		self.button_monitor.pack()#grid(row=1,column=3)
 		self.fm_mid.pack()
@@ -567,7 +571,7 @@ class My_Ftp(object):
 		return 'ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents'
 		'''
 		print("Debug start extract_ftp_info")
-		full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*)'
+		full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*?\r)'
 		res = re.search(full_ftp_re,s)
 	
 		if res:
@@ -658,14 +662,14 @@ class My_Ftp(object):
 		global DIRECT_DOWNLOAD_STOP
 		global DIRECT_DOWNLOAD_THREADS
 
-		self.button_direct.config(text="Click to stop...",bg='orange',relief='sunken',state='normal')
-		
 		if DIRECT_DOWNLOAD_STOP:
 			DIRECT_DOWNLOAD_STOP = False
+			self.button_direct.config(text="Click to stop...",bg='orange',relief='sunken',state='normal')
 
 			t = threading.Thread(target=self.direct_download)
 			DIRECT_DOWNLOAD_THREADS.append(t)
 			t.start()
+
 		else:
 			DIRECT_DOWNLOAD_STOP = True
 			self.button_direct.config(text="Stopping..",bg='orange', relief='sunken',state='disable')
@@ -683,6 +687,7 @@ class My_Ftp(object):
 		global PWD
 		global SAVE_DIR
 		global DOWNLOAD_DIR
+		global DIRECT_DOWNLOAD_STOP
 		printl("Direct_download starts")
 
 		#extract ftp info
@@ -733,10 +738,12 @@ class My_Ftp(object):
 	##############direct_download()##################
 
 	#revise with read_exchange
-	def start_monitor(self, mail_keyword):
+	def monitor_download(self, mail_keyword):
 		global MONITOR_REC_LIST
 		global MONITOR_REC_FILE
 		global IS_FIND
+		global MONITOR_STOP
+		global DIRECT_DOWNLOAD_STOP
 
 		self.interval_count = 0
 		MONITOR_REC_LIST.append('')
@@ -775,25 +782,32 @@ class My_Ftp(object):
 							print("\a")
 							printl("Detected ftp_info:{}".format(ftp_info))
 							#FTP_INFO = collections.namedtuple("FTP_INFO", "HOST PORT ACC PWD DIRNAME")
+							#must add '\\r' because extract_ftp_info use this as an end
 							s = r"ftp://"+ftp_info.ACC+":"+ftp_info.PWD+"@"+ftp_info.HOST+":"+\
-							ftp_info.PORT+ftp_info.DIRNAME
+							ftp_info.PORT+ftp_info.DIRNAME + '\r'
 							if 'unicode' in str(type(s)):
 								s = s.encode('utf-8')
 							self.v_host.set(s)
-							file_saved = self.direct_download()
-							#record mail, time, ftp, file_saved
-							#MONITOR_REC = collections.namedtuple("M_REC", "index time subject ftp download_file")
-							n += 1
-							t = str(mail_item.datetime_received)
-							s = mail_item.subject
-							f = ''.join(ftp_info)
-							if file_saved:
-								d = file_saved
+							if DIRECT_DOWNLOAD_STOP:
+								DIRECT_DOWNLOAD_STOP = False
+								self.button_direct.config\
+								(text="Click to stop...",bg='orange',relief='sunken',state='normal')
+								file_saved = self.direct_download()
+								#record mail, time, ftp, file_saved
+								#MONITOR_REC = collections.namedtuple("M_REC", "index time subject ftp download_file")
+								n += 1
+								t = str(mail_item.datetime_received)
+								s = mail_item.subject
+								f = ''.join(ftp_info)
+								if file_saved:
+									d = file_saved
+								else:
+									d = r"N/A"
+								monitor_record = MONITOR_REC(str(n)+'.', t, s, f, d)
+								MONITOR_REC_LIST.append(',  '.join(monitor_record))
+								IS_FIND = True
 							else:
-								d = r"N/A"
-							monitor_record = MONITOR_REC(str(n)+'.', t, s, f, d)
-							MONITOR_REC_LIST.append(',  '.join(monitor_record))
-							IS_FIND = True
+								printl("Error, another direct download is under processing, you can't start download this!")
 
 				time.sleep(int(self.v_interval.get()))
 				self.interval_count += 1
@@ -814,10 +828,10 @@ class My_Ftp(object):
 		record_monitor()
 		MONITOR_STOP = True
 		self.button_monitor.config(text="Start monitor",bg='white',relief='raised',state='normal')
-	#############start_monitor()#############
+	#############monitor_download()#############
 
 
-	def start_thread_monitor(self):
+	def start_monitor_download(self):
 
 		global MAIL_KEYWORD
 		global MONITOR_STOP
@@ -832,7 +846,7 @@ class My_Ftp(object):
 		if MONITOR_STOP:
 			MONITOR_STOP = False
 
-			t = threading.Thread(target=self.start_monitor, args=(MAIL_KEYWORD,))
+			t = threading.Thread(target=self.monitor_download, args=(MAIL_KEYWORD,))
 			#for terminating purpose
 			MONITOR_THREADS.append(t)
 			t.start()	
@@ -845,7 +859,7 @@ class My_Ftp(object):
 			record_monitor()
 
 			self.button_monitor.config(text="Start monitor",bg='white',relief='raised',state='normal')
-	############start_thread_monitor()#############
+	############start_monitor_download()#############
 
 
 	def periodical_check(self):

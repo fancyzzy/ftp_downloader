@@ -107,7 +107,15 @@ def test_start_monitor():
 				if not mail:
 					break
 				else:
-					#print("need to find ftp info from mail(subject):",mail.subject)
+					print("mail(subject):",mail.subject)
+					del_html = re.compile(r'<[^>]+>',re.S)
+					plain_body = del_html.sub('',mail.body)
+					#print("mail(body):",plain_body)
+					full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*?\r)'
+					res = re.search(full_ftp_re,plain_body)
+					if res:
+						print("\nftp info:",res.group(0))
+					return
 					pass
 
 			print("debug 6 seconds interval... %d/20\n" % n)
