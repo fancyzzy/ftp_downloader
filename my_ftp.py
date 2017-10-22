@@ -625,13 +625,11 @@ class My_Ftp(object):
 			p = p.encode('utf-8')#.decode('gb2312')
 		elif 'str' in str(type(p)):
 			p = p.decode('utf-8')
-
 		print(p)
-		print("DEBUG type(SAVE_DIR)",type(SAVE_DIR))
 
 		if p:
 			SAVE_DIR = p
-			print("DEBUG type(SAVE_DIR)",type(SAVE_DIR))
+			printl("Updated save dir: %s"%SAVE_DIR)
 			self.v_savein.set(p)
 	######open_dir()##############
 
@@ -937,7 +935,8 @@ class My_Ftp(object):
 
 		global FTQ
 
-		if askyesno("Tip","Save current configurations?"):
+		res = askyesnocancel("Mail Monitor","Save current configurations?", parent=ftp_top)
+		if res:
 			#save
 			HOST = self.v_host.get()
 			PORT = self.v_port.get()
@@ -954,8 +953,11 @@ class My_Ftp(object):
 			AD4_PWD = self.v_cip.get()
 
 			save_bak()
-		else:
+		elif res == False:
 			pass
+		#'cancel' returns None
+		else:
+			return
 
 		printl('Mail Monitor: Bye~'+'\n')
 		self.running = False
