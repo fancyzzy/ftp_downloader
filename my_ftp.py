@@ -170,7 +170,8 @@ def ftp_conn(host, port, acc, pwd):
 
 	try:
 		CONN = ftplib.FTP()
-		CONN.connect(host, port)
+		#set a 3 seconds timeout
+		CONN.connect(host, port, 3)
 	except (socket.error, socket.gaierror), e:
 		printl('ERROR: cannot reach host "%s", exited.' % host)
 		return False
@@ -619,7 +620,7 @@ class My_Ftp(object):
 
 	def choose_dir(self,ev=None):
 		global SAVE_DIR 
-		p = askdirectory(mustexist=1)  # 返回目录路径
+		p = askdirectory(parent=self.ftp_top,mustexist=1)  # 返回目录路径
 		print("choose to save in directory:",p)
 		if 'unicode' in str(type(p)):
 			p = p.encode('utf-8')#.decode('gb2312')
