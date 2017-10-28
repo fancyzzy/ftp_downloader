@@ -41,6 +41,8 @@ ACC = 'QD-BSC2'
 PWD = 'qdBSC#1234'
 SAVE_DIR = FTP_SAVES
 
+L_RESERVED_FTP = [r'ftp://ftpalcatel:ftp$alcatel1@172.23.102.135',r'ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080']
+
 CONN = None
 DATA_BAK_FILE = os.path.join(FTP_SAVES, "my_ftp.pkl")
 MAIL_KEYWORD = r'\d-\d{7}\d*'
@@ -210,6 +212,7 @@ def ftp_download_dir(dirname):
 		CONN.cwd(dirname)
 	except ftplib.error_perm:
 		printl('ERROR: cannot cd to "%s"' % dirname)
+		return False
 	else:
 
 		new_dir = os.path.basename(dirname)
@@ -242,6 +245,7 @@ def ftp_download_dir(dirname):
 					printl("[%d/%d]downloaded: %s" % \
 						(DIRECT_DOWNLOAD_COUNT, DIRECT_DOWNLOAD_TOTAL, filelines_bk[i]))
 			i += 1
+		return True
 ##################download_dir()###############
 
 def get_file_number(dirname):
@@ -581,7 +585,7 @@ class My_Ftp(object):
 		##############init()###############
 
 
-	def extract_ftp_info(self,s):
+	def extract_ftp_info(self,s, from_mail = False):
 		'''
 		from the string s to find the first ftp format string
 		return 'ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents'
@@ -595,7 +599,12 @@ class My_Ftp(object):
 		#full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*[^\.,\r])'
 		full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.[^\r,\n,\.]*)'
 		res = re.search(full_ftp_re,s)
-	
+
+		if not res:
+			#host is a domain name use r'(.[^/]*) to get the name string
+			full_ftp_re = r'ftp://(\w.*):(\w.*)@(.[^/]*)(:\d*)?(/.*[^\r,\n,\.])'
+			res = re.search(full_ftp_re,s)
+
 		#res.group(0) the whole ftp url
 		#res.group(1) the account
 		#res.group(2) the password
@@ -603,6 +612,8 @@ class My_Ftp(object):
 		#res.group(4) the port number
 		#res.group(5) the download directory
 		if res:
+			print("DEBUG regular expression res=",res)
+			print("DEBUG regular expression host res.group(0)=",res.group(0))
 			acc = res.group(1)
 			pwd = res.group(2)
 			host = res.group(3)
@@ -621,24 +632,66 @@ class My_Ftp(object):
 			else:
 				print("DEBUG error, some ftp info is none")
 				return None
+
 		else:
-			host_port_re = r'(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?'
-			host_port_res = re.search(host_port_re,s)
-			if host_port_res:
-				host = host_port_res.group(1)
-				port = host_port_res.group(2)
-				if not port:
-					port = '21'
+			#only partial ftp information
+			if not from_mail:
+				#direct input host:port like "135.252.80.40:21"
+				host_port_re = r'(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?'
+				host_port_res = re.search(host_port_re,s)
+				#for host is a domain string
+				if not host_port_res:
+					host_port_re = r'(.[^/]*)(:\d*)?'
+					host_port_res = re.search(host_port_re,s)
+
+				if host_port_res:
+					host = host_port_res.group(1)
+					port = host_port_res.group(2)
+					if not port:
+						port = '21'
+					else:
+						port = port[1:]
+					if host and port:
+						self.v_host.set(host)
+						self.v_port.set(port)
+					print("DEBUG host:{},port:{} got!".format(self.v_host.get(),self.v_port.get()))
+					return None
+				else:		
+					print("DEBUG ftp info not found return None")
+					return None
+			else:
+				#try to find the partila ftp info: directory name:
+
+				#check if there is only a directory name
+				#then get it and combined with the reserved servers
+				#try every reserved servers
+
+				partial_ftp_re = \
+				r'(available traces.*(\n)?.*)|(traces are available.*(\n)?.*)|(in TEC server.*(\n)?.*)|(download traces.*(\n)?.*)'
+				res = re.search(partial_ftp_re, s, re.IGNORECASE)
+
+				dirname = ''
+				if res:
+					print("DEBUG found the trace download flag!",res.group(0))
+					#there is trace upload flag
+					s_ftp = res.group(0)
+					dir_re = r'(/.*)+[^\.,\r,\n]'
+					res_dir = re.search(dir_re, s_ftp)	
+					if res_dir:
+						dirname = res_dir.group(0)
+						#debug why group(1) inacurate
+						print("DEBUG the dirname found:",dirname)
+						if dirname != None:
+							ftp_info = FTP_INFO('', '', '', '', dirname)
+							print("DEBUG partial ftp_info get: %s" % ''.join(ftp_info))
+							return ftp_info
+						else:
+							print("DEBUG no available dirname!")
+							return None
+					else:
+						return None
 				else:
-					port = port[1:]
-				if host and port:
-					self.v_host.set(host)
-					self.v_port.set(port)
-				print("DEBUG host:{},port:{} got!".format(self.v_host.get(),self.v_port.get()))
-				return None
-			else:		
-				print("DEBUG ftp info not found return None")
-				return None
+					return None
 ###########extract_ftp_info()################
 
 
@@ -723,7 +776,7 @@ class My_Ftp(object):
 		#extract ftp info
 		if self.v_host.get():
 
-			ftp_info = self.extract_ftp_info(self.v_host.get())
+			ftp_info = self.extract_ftp_info(self.v_host.get(), from_mail = False)
 			#FTP_INFO = collections.namedtuple("FTP_INFO", "HOST PORT ACC PWD DIRNAME")
 			if ftp_info:
 				self.v_host.set(ftp_info.HOST)
@@ -753,7 +806,7 @@ class My_Ftp(object):
 		file_saved = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, DOWNLOAD_DIR)
 
 		if not file_saved:
-			printl("Download Error: cannot access or file already exists or download dir not exsits.")
+			printl("Download failed.")
 			#crash
 			#showerror(title='Ftp Connect Error', message="Cannot accesst to %s" % HOST)
 		else:
@@ -778,6 +831,7 @@ class My_Ftp(object):
 		global IS_FIND
 		global MONITOR_STOP
 		global DIRECT_DOWNLOAD_STOP
+		global L_RESERVED_FTP
 
 		self.interval_count = 0
 		MONITOR_REC_LIST.append('')
@@ -813,12 +867,50 @@ class My_Ftp(object):
 					if not mail_item:
 						break
 					else:
+						#sound a bell
+						self.l_savein.bell()
 						#Extract ftp info and then start to download 
 						plain_body = del_html.sub('',mail_item.body)
-						#print("DEBUG plain_body:",plain_body)
-						ftp_info = self.extract_ftp_info(plain_body)
-						if ftp_info:
-							print("\a")
+						print("DEBUG plain_body:",plain_body)
+						ftp_info = self.extract_ftp_info(plain_body, from_mail=True)
+
+						#only dirname case:
+						if ftp_info != None and ftp_info.HOST == '' and ftp_info.ACC == '' and ftp_info.DIRNAME != '':
+							#use reserved ftp info to combine this dirname to try:
+							for ftp_addr in L_RESERVED_FTP:
+								print("DEBUG try ftp addr:",ftp_addr)
+								s = ftp_addr + ftp_info.DIRNAME + '\r'
+								if 'unicode' in str(type(s)):
+									s = s.encode('utf-8')
+								self.v_host.set(s)
+
+								if DIRECT_DOWNLOAD_STOP:
+									DIRECT_DOWNLOAD_STOP = False
+									self.button_direct.config\
+									(text="Click to stop...",bg='orange',relief='sunken',state='normal')
+									file_saved = self.direct_download()
+									#record mail, time, ftp, file_saved
+									#MONITOR_REC = collections.namedtuple("M_REC", "index time subject ftp download_file")
+									n += 1
+									t = str(mail_item.datetime_received)
+									s = mail_item.subject
+									f = ''.join(ftp_info)
+									if file_saved:
+										d = file_saved
+										monitor_record = MONITOR_REC(str(n)+'.', t, s, f, d)
+										#MONITOR_REC_LIST.append(',  '.join(monitor_record))
+										MONITOR_REC_LIST.append(str(monitor_record))
+										IS_FIND = True
+										self.v_saved_number += 1
+										self.l_savein.config(text='%s'%(str(self.v_saved_number) + ' Saved in: '), bg='orange')
+									else:
+										print("try another reserved ftp address...")
+										continue
+								else:
+									printl("Error, another direct download is under processing, you can't start download this!")
+
+
+						if ftp_info != None and ftp_info.HOST != '' and ftp_inf.ACC != '':
 							printl("Detected ftp_info:{}".format(ftp_info))
 							#FTP_INFO = collections.namedtuple("FTP_INFO", "HOST PORT ACC PWD DIRNAME")
 							#must add '\\r' because extract_ftp_info use this as an end
@@ -979,7 +1071,8 @@ class My_Ftp(object):
 			EXSERVER = self.v_exserver.get()
 			MAIL_ADD = self.v_mail_k_add.get()
 			AD4_ACC = self.v_csl.get()
-			self.v_cip.set('')
+			#do not save password
+			#self.v_cip.set('')
 			AD4_PWD = self.v_cip.get()
 
 			save_bak()
