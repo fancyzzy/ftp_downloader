@@ -231,6 +231,7 @@ def ftp_download_dir(dirname):
 				os.chdir('..')
 			else:
 				try:
+					#how to speed up?
 					CONN.retrbinary('RETR %s' % filelines_bk[i], \
 						open(filelines_bk[i], 'wb').write)
 				except ftplib.error_perm:
@@ -586,17 +587,27 @@ class My_Ftp(object):
 		return 'ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents'
 		'''
 		print("Debug start extract_ftp_info")
-		full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*?\r)'
+		#full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*?\r)'
+		#due to the mail content got from exchangelib is html fomat
+		#the matched result ended with a '\r' being the ending flag
+		#so use r'[^\\r]'to explicitly tell the characters lasts until meeting a r'\\r'
+		#sometimes people write the url and finished with the period '.' so stop here.
+		#full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*[^\.,\r])'
+		full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.[^\r,\n,\.]*)'
 		res = re.search(full_ftp_re,s)
 	
+		#res.group(0) the whole ftp url
+		#res.group(1) the account
+		#res.group(2) the password
+		#res.group(3) the IP address
+		#res.group(4) the port number
+		#res.group(5) the download directory
 		if res:
 			acc = res.group(1)
 			pwd = res.group(2)
 			host = res.group(3)
 			port = res.group(4)
-			# '.'will match any character except '\n' so the last 
-			#character is '\r' and use [:-1] to slice off it
-			dirname = res.group(5).strip('\r')
+			dirname = res.group(5).strip('\r').strip(' ')
 	
 			if not port:
 				port = '21'
@@ -804,6 +815,7 @@ class My_Ftp(object):
 					else:
 						#Extract ftp info and then start to download 
 						plain_body = del_html.sub('',mail_item.body)
+						#print("DEBUG plain_body:",plain_body)
 						ftp_info = self.extract_ftp_info(plain_body)
 						if ftp_info:
 							print("\a")
