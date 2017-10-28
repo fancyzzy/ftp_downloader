@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #!--*--coding:utf-8--*-
 
+import mttkinter as Tkinter
 from Tkinter import *
 import ttk
 from tkMessageBox import *
@@ -23,6 +24,14 @@ import tooltip
 import ctypes
 import inspect
 from tkFileDialog import askdirectory
+
+
+'''
+here totally 3 thread lists
+l_threads.extend(my_ftp.MONITOR_THREADS)
+l_threads.extend(my_ftp.DIRECT_DOWNLOAD_THREADS)
+l_threads.extend(my_ftp.PROGRESS_THREADS)
+'''
 
 
 HOST = '135.242.80.16:8080'
@@ -136,8 +145,10 @@ def terminate_threads(l_threads):
 		for t in l_threads:
 			if t.is_alive():
 				_async_raise(t.ident, SystemExit)
+				#bug18 unresolved question
+				#t._Thread__stop()
 	#clear the thread list
-	l_threads[:] = []
+	#l_threads[:] = []
 	#print "terminate threads done"
 ################terminate_threads()##########################
 
@@ -558,9 +569,11 @@ class My_Ftp(object):
 		#######retrive data from disk#############:
 		self.periodical_check()
 
+		#start a ever running progress tip thread
 		t_progress_tip = threading.Thread(target=self.start_progress_tip)
 		t_progress_tip.start()
 		PROGRESS_THREADS.append(t_progress_tip)
+		print("DEBUG progress thread start",t_progress_tip)
 
 
 		
@@ -641,7 +654,7 @@ class My_Ftp(object):
 		print "ftp start_progress_tip begin"
 		while 1:
 			#print("DEBUG progress is undergoing")
-			#time.sleep(2)
+			#time.sleep(1)
 			try:
 				#block = False means if queue is empty
 				#then get an exception
@@ -782,6 +795,9 @@ class My_Ftp(object):
 		if my_ol:
 			printl('Start monitoring...')
 			while 1:
+				if not self.running:
+					print("DEBUG no longer running, quit thie while")
+					break
 				for mail_item in my_ol.find_mail(self.v_mail_k.get()):
 					if not mail_item:
 						break
@@ -868,6 +884,7 @@ class My_Ftp(object):
 			#for terminating purpose
 			MONITOR_THREADS.append(t)
 			t.start()	
+			print("DEBUG monitor thread start",t)
 		else:
 			MONITOR_STOP = True
 			self.button_monitor.config(text="Stopping..",bg='orange', relief='sunken',state='disable')
@@ -956,8 +973,8 @@ class My_Ftp(object):
 			save_bak()
 		elif res == False:
 			pass
-		#'cancel' returns None
 		else:
+			#'cancel' nothing to do
 			return
 
 		printl('Mail Monitor: Bye~'+'\n')
@@ -978,17 +995,41 @@ class My_Ftp(object):
 			#derstroy only this window
 			ftp_top.destroy()
 
+		l_thr = []
+		l_thr.extend(MONITOR_THREADS)
+		l_thr.extend(DIRECT_DOWNLOAD_THREADS)
+		l_thr.extend(PROGRESS_THREADS)
+		terminate_threads(l_thr)
+		for l in l_thr:
+			if l.is_alive():
+				l._Thread__stop()
+
+
+		print("DEBUG my_ftp threads status:")
+		print("Direct threads:",DIRECT_DOWNLOAD_THREADS)
+		print("monitor threads:",MONITOR_THREADS)
+		print("Progress threads:",PROGRESS_THREADS)
+		print("self.running:",self.running)
+		print("DEBUG askquit finished")
 	###########init()##############		
 
 
-if __name__ == '__main__':
+def main():
+	cstart = time.clock()
 
 	test_top = Tk()
 	test_top.withdraw()
-
 	ftp_top = My_Ftp(test_top)
+
+	cend = time.clock()
+	print("'Startup time costs: %.2f seconds.'"%(cend-cstart))
 	test_top.mainloop()
 
+if __name__ == '__main__':
+
+	main()
+
+	print("my_ftp.py main finishied")
 
 	#upload test
 	'''
