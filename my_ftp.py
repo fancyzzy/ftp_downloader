@@ -152,6 +152,8 @@ def retrive_reserved_ftp():
 				else:
 					L_RESERVED_FTP.append(buff.strip())
 	except Exception as e:
+		#if no .ini file
+		L_RESERVED_FTP = [r'ftp://ftpalcatel:ftp$alcatel1@172.23.102.135',r'ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080']
 		pass
 	else:
 		print("DEBUG L_RESERVED_FTP=",L_RESERVED_FTP)
