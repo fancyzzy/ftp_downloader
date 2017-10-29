@@ -1035,13 +1035,13 @@ class My_Ftp(object):
 										#quit after downloading successuflly
 										break
 									else:
-										print("try another reserved ftp address...")
+										printl("try another reserved ftp address...")
 										continue
 								else:
 									printl("Error, another direct download is under processing, you can't start download this!")
 
 
-						if ftp_info != None and ftp_info.HOST != '' and ftp_inf.ACC != '':
+						if ftp_info != None and ftp_info.HOST != '' and ftp_info.ACC != '':
 							printl("Detected ftp_info:{}".format(ftp_info))
 							#FTP_INFO = collections.namedtuple("FTP_INFO", "HOST PORT ACC PWD DIRNAME")
 							#must add '\\r' because extract_ftp_info use this as an end
