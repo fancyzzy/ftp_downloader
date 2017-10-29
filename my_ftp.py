@@ -232,7 +232,7 @@ def ftp_conn(host, port, acc, pwd):
 	except (socket.error, socket.gaierror), e:
 		printl('ERROR: cannot reach host "%s", exited.' % host)
 		return False
-	printl('*** Successfully connected to host "%s"'% host)
+	printl("Successfully connected to host '%s'"% host)
 
 	try:
 		CONN.login(acc, pwd)
@@ -240,7 +240,7 @@ def ftp_conn(host, port, acc, pwd):
 		printl('ERROR: cannot login as "%s", exited.' % acc)
 		CONN.quit()
 		return False
-	printl('*** Successfully logged in as "%s"' % acc)
+	printl("Successfully logged in as '%s'" % acc)
 
 	return True
 ############ftp_conn()#####################
@@ -254,11 +254,9 @@ def ftp_write_handle(buff,total,func):
 	global PROGRESS_TOTAL_BYTES
 
 	start_t = time.clock()
-	#print("DEBUG handle len(buff){}/{}".format(len(buff),total))
 	func(buff)
 	block_len = len(buff)
 	DIRECT_DOWNLOAD_BYTES += block_len
-	#print("DEBUG downloading: {}/{}".format(DIRECT_DOWNLOAD_BYTES,total))
 	PROGRESS_BAR["maximum"] = total
 	PROGRESS_BAR["value"] = DIRECT_DOWNLOAD_BYTES
 
@@ -267,7 +265,7 @@ def ftp_write_handle(buff,total,func):
 	PROGRESS_TOTAL_BYTES += block_len
 	PROGRESS_COST_SEC += interv_t
 
-	s = "{}/{}KB,speed:{:.1f}KB".format(DIRECT_DOWNLOAD_BYTES/1024, total/1024, \
+	s = "{:.1%}({:.1f}KB/s)".format(DIRECT_DOWNLOAD_BYTES*1.0/total, \
 		PROGRESS_TOTAL_BYTES/1024.0/PROGRESS_COST_SEC)
 	PROGRESS_STRVAR.set(s)
 
@@ -277,7 +275,7 @@ def ftp_download_dir(dirname):
 	global DIRECT_DOWNLOAD_TOTAL
 	global DIRECT_DOWNLOAD_BYTES
 
-	print('ftp_download_dir start, dirname = %s' % dirname)
+	print("ftp_download_dir start, dirname: '%s'" % dirname)
 	try:
 		CONN.cwd(dirname)
 	except ftplib.error_perm:
@@ -306,22 +304,26 @@ def ftp_download_dir(dirname):
 				try:
 					#how to speed up?
 					DIRECT_DOWNLOAD_BYTES = 0
+					#change transfor mode from ASCII to Binary
+					#then allowed to get file_size
+					CONN.voidcmd('TYPE I')
 					file_size = CONN.size(filelines_bk[i])
-					maxblocksize = 1002400
+					maxblocksize = 2097152
 					printl("Downloading[%d/%d]: %s"%\
 						(DIRECT_DOWNLOAD_COUNT+1, DIRECT_DOWNLOAD_TOTAL, filelines_bk[i]))
-					file_to_write = open(filelines_bk[i], 'wb').write
 
+					file_to_write = open(filelines_bk[i], 'wb').write
 					CONN.retrbinary('RETR %s' % filelines_bk[i], \
-						#open(filelines_bk[i], 'wb').write, maxblocksize)
+						#open(filelines_bk[i], 'wb').write,maxblocksize)
+						#use lambda to pass multiple paremeters
 						lambda block: ftp_write_handle(block,file_size,file_to_write), maxblocksize)
-				except ftplib.error_perm:
+				#except ftplib.error_perm:
+				except Exception as e:
 					printl('ERROR: cannot read file "%s"' % file)
-					os.unlink(file)
+					print("error:",e)
+					os.unlink(filelines_bk[i])
 				else:
 					DIRECT_DOWNLOAD_COUNT += 1
-					printl("[%d/%d]downloaded: %s" % \
-						(DIRECT_DOWNLOAD_COUNT, DIRECT_DOWNLOAD_TOTAL, filelines_bk[i]))
 			i += 1
 		return True
 ##################download_dir()###############
@@ -350,7 +352,7 @@ def get_file_number(dirname):
 		i = 0
 	
 		for file in filelines:
-			if '<DIR>' in file:
+			if '<DIR>' in file or file.startswith('d'):
 				get_file_number(filelines_bk[i])
 				CONN.cwd('..')
 			else:
@@ -385,18 +387,22 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	if not ftp_conn(host, port, acc, pwd):
 		return None
 
-	printl("A new download dir, now calculating files number...")
+	printl("Begin to download, calculating files number...")
 	DIRECT_DOWNLOAD_TOTAL = 0
 	DIRECT_DOWNLOAD_COUNT = 0
 	get_file_number(download_dir)
 	if DIRECT_DOWNLOAD_TOTAL == 0:
 		return None
-	printl("Total %d files to be downloaded" % (DIRECT_DOWNLOAD_TOTAL))
+	printl("Total %d files" % (DIRECT_DOWNLOAD_TOTAL))
 	PORGRESS_COST_TIME = 0
 	PORGRESS_TOTAL_BYTES = 0
 	PROGRESS_BAR.pack(side=LEFT)
 	PROGRESS_LBL.pack(side=LEFT)
-	ftp_download_dir(download_dir)
+	try:
+		ftp_download_dir(download_dir)
+	except Exception as e:
+		print("DEBUG ftp_download_dir wrong")
+		pass
 	CONN.quit()
 
 	PROGRESS_BAR.pack_forget()
@@ -405,6 +411,7 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 		printl("All {} files downloaded successfully!".\
 			format(DIRECT_DOWNLOAD_COUNT))
 	else:
+		#Should deleted the directory?
 		printl("DEBUG error, download number mismatch")
 	return os.path.join(save_dir,os.path.basename(download_dir))
 #############my_download()########
@@ -720,7 +727,6 @@ class My_Ftp(object):
 		#res.group(4) the port number
 		#res.group(5) the download directory
 		if res:
-			print("DEBUG regular expression res=",res)
 			print("DEBUG regular expression host res.group(0)=",res.group(0))
 			acc = res.group(1)
 			pwd = res.group(2)
@@ -853,6 +859,8 @@ class My_Ftp(object):
 	def start_direct_download(self):
 		global DIRECT_DOWNLOAD_STOP
 		global DIRECT_DOWNLOAD_THREADS
+		global PROGRESS_BAR
+		global PROGRESS_LBL
 
 		if DIRECT_DOWNLOAD_STOP:
 			DIRECT_DOWNLOAD_STOP = False
@@ -868,6 +876,8 @@ class My_Ftp(object):
 			terminate_threads(DIRECT_DOWNLOAD_THREADS)
 			printl("Direct Download is terminated")
 			self.button_direct.config(text="Direct download",bg='white',relief='raised',state='normal')
+			PROGRESS_BAR.pack_forget()
+			PROGRESS_LBL.pack_forget()
 
 	##########start_direct_download()###################
 	
@@ -990,7 +1000,7 @@ class My_Ftp(object):
 						self.l_savein.bell()
 						#Extract ftp info and then start to download 
 						plain_body = del_html.sub('',mail_item.body)
-						print("DEBUG plain_body:",plain_body)
+						#print("DEBUG plain_body:",plain_body)
 						ftp_info = self.extract_ftp_info(plain_body, from_mail=True)
 
 						#only dirname case:
