@@ -290,8 +290,16 @@ def ftp_download_dir(dirname):
 		os.chdir(new_dir)
 
 		filelines = []
+		filelines_bk = []
 		CONN.dir(filelines.append)
-		filelines_bk = CONN.nlst()
+		original_filelines_bk = CONN.nlst()
+
+		for file in filelines:
+			for file_bk in original_filelines_bk:
+				if file_bk in file:
+					filelines_bk.append(file_bk)
+					break
+
 		i = 0
 		for file in filelines:
 			#<DIR> display in widows and dxxx in linux
@@ -332,10 +340,12 @@ def get_file_number(dirname):
 	global DIRECT_DOWNLOAD_TOTAL
 	global CONN
 
+	print("DEBUG get_file_number, dirname:'%s'"%dirname)
 	try:
 		CONN.cwd(dirname)
-	except ftplib.error_perm:
-		printl('ERROR: cannot cd to "%s"' % dirname)
+		print("DEBUG cd in:%s"%dirname)
+	except Exception as e:
+		printl('ERROR: cannot cd to "%s" due to %s' % (dirname,e))
 		return None
 	else:
 
@@ -346,14 +356,33 @@ def get_file_number(dirname):
 		os.chdir(new_dir)
 		'''
 
+		#bug filelines not match with filelines_bk order
 		filelines = []
-		CONN.dir(filelines.append)
+		filelines_bk = []
 		filelines_bk = CONN.nlst()
+		CONN.dir(filelines.append)
+		#print("DEBUG filelines:",filelines)
+		'''
+		original_filelines_bk = CONN.nlst()
+		for file in filelines:
+			for file_bk in original_filelines_bk:
+				if file_bk in file:
+					filelines_bk.append(file_bk)
+					break
+		'''
+
+		#print("DEBUG filelines_bk:",filelines_bk)
 		i = 0
 	
 		for file in filelines:
+			#print("DEBUG file=%s"%file)
+			#print("DEBUG filelines_bk[i]=%s"%filelines_bk[i])
 			if '<DIR>' in file or file.startswith('d'):
-				get_file_number(filelines_bk[i])
+				if filelines_bk[i] in file:
+					get_file_number(filelines_bk[i])
+				else:
+					print("disorderrrrrrrrrrrrrrrrr!")
+					get_file_number(file.split()[-1])
 				CONN.cwd('..')
 			else:
 				DIRECT_DOWNLOAD_TOTAL += 1
@@ -375,7 +404,7 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 
 	down_name = os.path.basename(download_dir)
 
-	printl("my_download starts")
+	printl("my_download starts,download_dir: '%s'"%(download_dir))
 	#if this file had been downloaded, quit
 	printl("Check exists of dir: %s"%(os.path.join(save_dir,down_name)))
 	if os.path.exists(os.path.join(save_dir,down_name)):
@@ -398,11 +427,8 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	PORGRESS_TOTAL_BYTES = 0
 	PROGRESS_BAR.pack(side=LEFT)
 	PROGRESS_LBL.pack(side=LEFT)
-	try:
-		ftp_download_dir(download_dir)
-	except Exception as e:
-		print("DEBUG ftp_download_dir wrong")
-		pass
+
+	ftp_download_dir(download_dir)
 	CONN.quit()
 
 	PROGRESS_BAR.pack_forget()
@@ -926,10 +952,15 @@ class My_Ftp(object):
 		self.v_host.set(HOST + ':' + PORT)
 		file_saved = ''
 		start_t = time.clock()
-		file_saved = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, DOWNLOAD_DIR)
+		try:
+			file_saved = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, DOWNLOAD_DIR)
+		except Exception as e:
+			print("my_download error",e)
+			file_saved = None
 		end_t = time.clock()
 		interval_t = time.clock() - start_t
 
+		print("DEBUG file_saved=",file_saved)
 		if not file_saved:
 			printl("Download failed.")
 			#crash
