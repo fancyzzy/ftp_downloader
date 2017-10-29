@@ -41,15 +41,17 @@ ACC = 'QD-BSC2'
 PWD = 'qdBSC#1234'
 SAVE_DIR = FTP_SAVES
 
-L_RESERVED_FTP = [r'ftp://ftpalcatel:ftp$alcatel1@172.23.102.135',r'ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080']
+#L_RESERVED_FTP = [r'ftp://ftpalcatel:ftp$alcatel1@172.23.102.135',r'ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080']
+L_RESERVED_FTP = []
 
 CONN = None
-DATA_BAK_FILE = os.path.join(FTP_SAVES, "my_ftp.pkl")
+CWD_PATH = os.getcwd()
+DATA_BAK_FILE = os.path.join(CWD_PATH, "my_ftp.pkl")
 MAIL_KEYWORD = r'\d-\d{7}\d*'
 #MAIL_KEYWORD = '1-6853088'
 MONITOR_INTERVAL = '6'
 MY_FTP = collections.namedtuple("MY_FTP",\
- "host port user pwd target_dir mail_keyword interval")
+ "host port user pwd target_dir mail_keyword interval l_reserved")
 
 #outlook config
 EXSERVER = 'CASArray.ad4.ad.alcatel.com'
@@ -86,7 +88,8 @@ FTP_FILE_QUE = Queue.Queue()
 
 
 def save_bak():
-	ftp_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR, MAIL_KEYWORD, MONITOR_INTERVAL)
+	ftp_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR, MAIL_KEYWORD, MONITOR_INTERVAL,\
+		L_RESERVED_FTP)
 	ol_bak = MY_OLOOK(EXSERVER, MAIL_ADD, AD4_ACC, AD4_PWD)
 	data_bak = DATA_BAK(ftp_bak, ol_bak)
 	#printl("Save data_bak: {}".format(data_bak))
@@ -95,7 +98,20 @@ def save_bak():
 
 
 def retrive_bak():
-	printl('Welcome to Mail Monitor v2.0')
+	global HOST
+	global PORT
+	global ACC
+	global PWD
+	global DOWNLOAD_DIR
+	global MONITOR_INTERVAL
+	global L_RESERVED_FTP
+
+	global EXSERVER
+	global MAIL_ADD
+	global AD4_ACC
+	global AD4_PWD
+
+	printl("'Welcome to Mail Monitor v2.1'")
 	try:
 		data_bak = pickle.load(open(DATA_BAK_FILE, "rb"))
 		#printl("Retrive data_bak:{}".format(data_bak))
@@ -106,6 +122,7 @@ def retrive_bak():
 		PWD = data_bak.ftp_bak.pwd
 		DOWNLOAD_DIR = data_bak.ftp_bak.target_dir
 		MONITOR_INTERVAL = data_bak.ftp_bak.interval
+		L_RESERVED_FTP = data_bak.ftp_bak.l_reserved
 
 		EXSERVER = data_bak.ol_bak.server
 		MAIL_ADD = data_bak.ol_bak.mail
@@ -114,12 +131,31 @@ def retrive_bak():
 
 	except Exception as e:
 		#printl("ERROR occure, e= %s" %e)
+		if not L_RESERVED_FTP:
+			retrive_reserved_ftp()
 		pass
 
 	else:
 		#printl("Retrive success!\n")
 		return data_bak	
 	return None
+
+def retrive_reserved_ftp():
+	global CWD_PATH
+	global L_RESERVED_FTP
+	try:
+		with open(os.path.join(CWD_PATH,'reserved_ftp.ini'), 'rb') as fobj:
+			while 1:
+				buff = fobj.readline()
+				if buff == '':
+					break
+				else:
+					L_RESERVED_FTP.append(buff.strip())
+	except Exception as e:
+		pass
+	else:
+		print("DEBUG L_RESERVED_FTP=",L_RESERVED_FTP)
+
 ############retrive_bak()###################
 
 
@@ -507,7 +543,7 @@ class My_Ftp(object):
 		self.v_mail_k = StringVar()
 		self.entry_mail_k = Entry(self.fm_config, textvariable=self.v_mail_k,width=27)
 		self.entry_mail_k.grid(row=2,column=1)
-		tts ="Refer to the Python regular expression\n '.*' means no filter"
+		tts ="Refer to the Python regular expression\n '.*' means no filter or just leave it a blank"
 		tooltip.ToolTip(self.entry_mail_k, msg=None, msgFunc=lambda : tts, follow=True, delay=0.2)
 
 
@@ -667,7 +703,9 @@ class My_Ftp(object):
 				#try every reserved servers
 
 				partial_ftp_re = \
-				r'(available traces.*(\n)?.*)|(traces are available.*(\n)?.*)|(in TEC server.*(\n)?.*)|(download traces.*(\n)?.*)'
+				r'(in TEC server.*(\n)?.*)|(traces are.*(\n)?.*)'+\
+				r'|(available traces.*(\n)?.*)|(download traces.*(\n)?.*)'+\
+				r'|(you can get.*(\n)?.*)|(traces upload.*(\n).*)'
 				res = re.search(partial_ftp_re, s, re.IGNORECASE)
 
 				dirname = ''
@@ -770,6 +808,7 @@ class My_Ftp(object):
 		global SAVE_DIR
 		global DOWNLOAD_DIR
 		global DIRECT_DOWNLOAD_STOP
+		global L_RESERVED_FTP
 		printl("Direct_download starts")
 
 
@@ -810,8 +849,11 @@ class My_Ftp(object):
 			#crash
 			#showerror(title='Ftp Connect Error', message="Cannot accesst to %s" % HOST)
 		else:
-			printl("Download completed in: %s" % \
-				file_saved)
+			printl("Download completed in: %s" % file_saved)
+			#update MM's knowledge about ftp info 
+			s = r"ftp://"+ACC+":"+PWD+"@"+HOST+":"+PORT
+			if s not in L_RESERVED_FTP:
+				L_RESERVED_FTP.append(s)
 
 			if AUTOANA_ENABLE:
 				#send to queue for other processing, e.g.,auto search in listdir.py
@@ -903,6 +945,8 @@ class My_Ftp(object):
 										IS_FIND = True
 										self.v_saved_number += 1
 										self.l_savein.config(text='%s'%(str(self.v_saved_number) + ' Saved in: '), bg='orange')
+										#quit after downloading successuflly
+										break
 									else:
 										print("try another reserved ftp address...")
 										continue
@@ -1057,7 +1101,7 @@ class My_Ftp(object):
 
 		global FTQ
 
-		res = askyesnocancel("Mail Monitor","Save current configurations?", parent=ftp_top)
+		res = askyesnocancel("Mail Monitor","(Recommended)Save current configurations?", parent=ftp_top)
 		if res:
 			#save
 			HOST = self.v_host.get()
@@ -1082,7 +1126,7 @@ class My_Ftp(object):
 			#'cancel' nothing to do
 			return
 
-		printl('Mail Monitor: Bye~'+'\n')
+		printl("'Mail Monitor exited'\n")
 		self.running = False
 		FTP_FILE_QUE.put('ftp quit')
 
@@ -1110,12 +1154,14 @@ class My_Ftp(object):
 				l._Thread__stop()
 
 
+		'''
 		print("DEBUG my_ftp threads status:")
 		print("Direct threads:",DIRECT_DOWNLOAD_THREADS)
 		print("monitor threads:",MONITOR_THREADS)
 		print("Progress threads:",PROGRESS_THREADS)
 		print("self.running:",self.running)
 		print("DEBUG askquit finished")
+		'''
 	###########init()##############		
 
 
@@ -1133,8 +1179,6 @@ def main():
 if __name__ == '__main__':
 
 	main()
-
-	print("my_ftp.py main finishied")
 
 	#upload test
 	'''
