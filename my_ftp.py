@@ -69,6 +69,7 @@ DIRECT_DOWNLOAD_STOP = True
 DIRECT_DOWNLOAD_THREADS = []
 DIRECT_DOWNLOAD_TOTAL = 0
 DIRECT_DOWNLOAD_COUNT = 0
+DIRECT_DOWNLOAD_BYTES = 0
 
 AUTOANA_ENABLE = False
 MONITOR_THREADS = []
@@ -85,6 +86,11 @@ dir_number = 0
 
 PROGRESS_THREADS = []
 FTP_FILE_QUE = Queue.Queue()
+PROGRESS_LBL = None
+PROGRESS_BAR = None
+PROGRESS_STRVAR = None
+PROGRESS_COST_SEC = 0
+PROGRESS_TOTAL_BYTES = 0
 
 
 def save_bak():
@@ -240,10 +246,36 @@ def ftp_conn(host, port, acc, pwd):
 ############ftp_conn()#####################
 
 
+def ftp_write_handle(buff,total,func):
+	global DIRECT_DOWNLOAD_BYTES
+	global PROGRESS_BAR
+	global PROGRESS_STRVAR
+	global PROGRESS_COST_SEC
+	global PROGRESS_TOTAL_BYTES
+
+	start_t = time.clock()
+	#print("DEBUG handle len(buff){}/{}".format(len(buff),total))
+	func(buff)
+	block_len = len(buff)
+	DIRECT_DOWNLOAD_BYTES += block_len
+	#print("DEBUG downloading: {}/{}".format(DIRECT_DOWNLOAD_BYTES,total))
+	PROGRESS_BAR["maximum"] = total
+	PROGRESS_BAR["value"] = DIRECT_DOWNLOAD_BYTES
+
+	interv_t = time.clock() - start_t
+
+	PROGRESS_TOTAL_BYTES += block_len
+	PROGRESS_COST_SEC += interv_t
+
+	s = "{}/{}KB,speed:{:.1f}KB".format(DIRECT_DOWNLOAD_BYTES/1024, total/1024, \
+		PROGRESS_TOTAL_BYTES/1024.0/PROGRESS_COST_SEC)
+	PROGRESS_STRVAR.set(s)
+
 def ftp_download_dir(dirname):
 	global CONN
 	global DIRECT_DOWNLOAD_COUNT
 	global DIRECT_DOWNLOAD_TOTAL
+	global DIRECT_DOWNLOAD_BYTES
 
 	print('ftp_download_dir start, dirname = %s' % dirname)
 	try:
@@ -273,8 +305,16 @@ def ftp_download_dir(dirname):
 			else:
 				try:
 					#how to speed up?
+					DIRECT_DOWNLOAD_BYTES = 0
+					file_size = CONN.size(filelines_bk[i])
+					maxblocksize = 1002400
+					printl("Downloading[%d/%d]: %s"%\
+						(DIRECT_DOWNLOAD_COUNT+1, DIRECT_DOWNLOAD_TOTAL, filelines_bk[i]))
+					file_to_write = open(filelines_bk[i], 'wb').write
+
 					CONN.retrbinary('RETR %s' % filelines_bk[i], \
-						open(filelines_bk[i], 'wb').write)
+						#open(filelines_bk[i], 'wb').write, maxblocksize)
+						lambda block: ftp_write_handle(block,file_size,file_to_write), maxblocksize)
 				except ftplib.error_perm:
 					printl('ERROR: cannot read file "%s"' % file)
 					os.unlink(file)
@@ -325,6 +365,11 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	global DIRECT_DOWNLOAD_COUNT
 	global file_number
 	global dir_number
+	global PROGRESS_COST_SEC
+	global PROGRESS_TOTAL_BYTES
+	global PROGRESS_STRVAR
+	global PROGRESS_BAR
+	global PROGRESS_LBL
 
 	down_name = os.path.basename(download_dir)
 
@@ -347,15 +392,20 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	if DIRECT_DOWNLOAD_TOTAL == 0:
 		return None
 	printl("Total %d files to be downloaded" % (DIRECT_DOWNLOAD_TOTAL))
+	PORGRESS_COST_TIME = 0
+	PORGRESS_TOTAL_BYTES = 0
+	PROGRESS_BAR.pack(side=LEFT)
+	PROGRESS_LBL.pack(side=LEFT)
 	ftp_download_dir(download_dir)
 	CONN.quit()
 
+	PROGRESS_BAR.pack_forget()
+	PROGRESS_LBL.pack_forget()
 	if DIRECT_DOWNLOAD_TOTAL == DIRECT_DOWNLOAD_COUNT:
 		printl("All {} files downloaded successfully!".\
 			format(DIRECT_DOWNLOAD_COUNT))
 	else:
 		printl("DEBUG error, download number mismatch")
-
 	return os.path.join(save_dir,os.path.basename(download_dir))
 #############my_download()########
 
@@ -570,14 +620,34 @@ class My_Ftp(object):
 
 		self.pwindow_qconn.pack()
 
-		Label(self.ftp_top,text='  ').pack(side=LEFT)
+		Label(self.ftp_top,text='  ').pack()
 		self.fm_tip = Frame(self.ftp_top)
+		fm_label = Frame(self.fm_tip)
 		#self.label_blank11 = Label(self.fm_tip,text= '  '*3).pack(side=LEFT)
 		self.v_tip = StringVar()
-		self.label_tip = Label(self.fm_tip,textvariable=self.v_tip)
+		self.label_tip = Label(fm_label,textvariable=self.v_tip,justify=LEFT)
 		self.label_tip.grid(row=0,column=0)
+		fm_label.pack()
+
+		fm_b = Frame(self.fm_tip)
+		self.p = ttk.Progressbar(fm_b, orient=HORIZONTAL, mode='determinate',length = 100, maximum=100)
+		self.p.pack(side=LEFT)
+		global PROGRESS_BAR
+		global PROGRESS_STRVAR
+		global PROGRESS_LBL
+		self.v_p = StringVar()
+		self.v_p.set("")
+		PROGRESS_STRVAR = self.v_p
+		self.p_label = Label(fm_b, textvariable=self.v_p)
+		self.p_label.pack(side=LEFT)
+		PROGRESS_LBL = self.p_label
+		PROGRESS_BAR = self.p
+		fm_b.pack(side=LEFT)
 		self.fm_tip.pack(side=LEFT)
+		PROGRESS_BAR.pack_forget()
+		PROGRESS_LBL.pack_forget()
 		#GUI finish
+
 
 		#######retrive data from disk#############:
 		data_bak = retrive_bak()
@@ -841,17 +911,22 @@ class My_Ftp(object):
 				self.v_ddirname.set(self.v_ddirname.get()[:-1])
 			DOWNLOAD_DIR = self.v_ddirname.get()
 
+
 		#set host to display as ip:port format
 		self.v_host.set(HOST + ':' + PORT)
 		file_saved = ''
+		start_t = time.clock()
 		file_saved = my_download(HOST, PORT, ACC, PWD, SAVE_DIR, DOWNLOAD_DIR)
+		end_t = time.clock()
+		interval_t = time.clock() - start_t
 
 		if not file_saved:
 			printl("Download failed.")
 			#crash
 			#showerror(title='Ftp Connect Error', message="Cannot accesst to %s" % HOST)
 		else:
-			printl("Download completed in: %s" % file_saved)
+			self.l_savein.bell()
+			printl("Download completed in: %s, total time: %.1f seconds" % (file_saved, interval_t))
 			#update MM's knowledge about ftp info 
 			s = r"ftp://"+ACC+":"+PWD+"@"+HOST+":"+PORT
 			if s not in L_RESERVED_FTP:
