@@ -15,13 +15,11 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 import re
 import threading
 from time import sleep
-from log_reserve import printl
 
 
 EXCHANGE_SERVER_ADD = 'CASArray.ad4.ad.alcatel.com'
 tz = EWSTimeZone.timezone('UTC')
 UTC_NOW = tz.localize(EWSDateTime.now())# - timedelta(hours=8)
-#printl("DEBUG read_exchange.py: utc_now= %s" %str(UTC_NOW))
 
 user_name = 'ad4\\tarzonz'
 pwd = 'CV_28763_10a'
@@ -39,8 +37,8 @@ class MY_OUTLOOK():
 
 		tz = EWSTimeZone.timezone('UTC')
 		self.utc_time_point = UTC_NOW
-		printl("Successfully accessed to exchange server. time:%s"%str(UTC_NOW))
-		printl("Server:{0}, Mail:{1}, Username{2}".format(ser,mail,acc))
+		print("Successfully accessed to exchange server. time:%s"%str(UTC_NOW))
+		print("Server:{0}, Mail:{1}, Username{2}".format(ser,mail,acc))
 	##########init()##############
 
 
@@ -73,7 +71,7 @@ class MY_OUTLOOK():
 			subject = item.subject
 
 			if re_rule.search(subject):
-				printl("Detect a new mail, Date:[%s], subject:[%s]" % (str(d_rec), subject))
+				print("Detect a new mail, Date:[%s], subject:[%s]" % (str(d_rec), subject))
 				yield item
 
 		#update time to the checked latest mail's

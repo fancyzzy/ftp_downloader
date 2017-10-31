@@ -21,11 +21,13 @@ def printl(s):
 	if 'unicode' in str(type(s)):
 		s = s.encode('utf-8')
 
+	#for progress tip
 	FTP_TIP_QUE.put(s)
 	print(s)
 
 	time_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
+	#for my_ftp.log
 	try:
 		with open(LOG_FILE, 'a') as fobj:
 			fobj.write(time_now +  ': ' + s + '\n')
