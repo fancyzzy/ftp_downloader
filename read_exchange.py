@@ -70,6 +70,9 @@ class MY_OUTLOOK():
 				break
 			subject = item.subject
 
+			if subject == None:
+				subject = ''
+
 			if re_rule.search(subject):
 				print("Detect a new mail, Date:[%s], subject:[%s]" % (str(d_rec), subject))
 				yield item
