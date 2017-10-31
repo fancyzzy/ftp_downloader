@@ -440,7 +440,7 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	PROGRESS_BAR.pack(side=LEFT)
 	PROGRESS_LBL.pack(side=LEFT)
 
-	ftp_download_dir(download_dir)
+	download_success = ftp_download_dir(download_dir)
 	CONN.quit()
 
 	PROGRESS_BAR.pack_forget()
@@ -451,6 +451,8 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 	else:
 		#Should deleted the directory?
 		printl("DEBUG error, download number mismatch")
+	if not download_success:
+		return None
 	return os.path.join(save_dir,os.path.basename(download_dir))
 #############my_download()########
 
@@ -908,7 +910,7 @@ class My_Ftp(object):
 
 		if DIRECT_DOWNLOAD_STOP:
 			DIRECT_DOWNLOAD_STOP = False
-			self.button_direct.config(text="Click to stop...",bg='orange',relief='sunken',state='normal')
+			self.button_direct.config(text="Downloading...",bg='orange',relief='sunken',state='normal')
 
 			t = threading.Thread(target=self.direct_download)
 			DIRECT_DOWNLOAD_THREADS.append(t)
@@ -1031,7 +1033,7 @@ class My_Ftp(object):
 					if DIRECT_DOWNLOAD_STOP:
 						DIRECT_DOWNLOAD_STOP = False
 						self.button_direct.config\
-						(text="Click to stop...",bg='orange',relief='sunken',state='normal')
+						(text="Downloading...",bg='orange',relief='sunken',state='normal')
 						file_saved = self.direct_download()
 						if file_saved:
 							self.v_saved_number += 1
@@ -1106,7 +1108,7 @@ class My_Ftp(object):
 						#print("DEBUG plain_body:",plain_body)
 						ftp_info = self.extract_ftp_info(plain_body, from_mail=True)
 
-						if ftp_infor not in FTP_INFO_HISTORY:
+						if ftp_info not in FTP_INFO_HISTORY:
 							FTP_INFO_HISTORY.append(ftp_info)
 						else:
 							print("DBUEG already handled ftp_info")
@@ -1161,7 +1163,7 @@ class My_Ftp(object):
 
 		if MONITOR_STOP:
 			MONITOR_STOP = False
-			self.button_monitor.config(text="Click to stop...",bg='orange', relief='sunken',state='normal')
+			self.button_monitor.config(text="Monitoring...",bg='orange', relief='sunken',state='normal')
 			t_monitor = threading.Thread(target=self.monitor_ftpinfo)
 			t_download = threading.Thread(target=self.download_ftpinfo)
 			#for terminating purpose
