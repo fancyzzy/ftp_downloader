@@ -15,6 +15,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 import re
 import threading
 from time import sleep
+from log_reserve import printl
 
 
 EXCHANGE_SERVER_ADD = 'CASArray.ad4.ad.alcatel.com'
@@ -74,7 +75,7 @@ class MY_OUTLOOK():
 				subject = ''
 
 			if re_rule.search(subject):
-				print("Detect a new mail, Date:[%s], subject:[%s]" % (str(d_rec), subject))
+				printl("\nDetect a new mail, Date:[%s], subject:[%s]" % (str(d_rec), subject))
 				yield item
 
 		#update time to the checked latest mail's

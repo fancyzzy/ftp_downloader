@@ -87,6 +87,7 @@ PROGRESS_STRVAR = None
 PROGRESS_COST_SEC = 0
 PROGRESS_TOTAL_BYTES = 0
 
+#MUTEX = threading.Lock()
 
 def save_bak():
 	ftp_bak = MY_FTP(HOST, PORT, ACC, PWD, DOWNLOAD_DIR, MAIL_KEYWORD, MONITOR_INTERVAL,\
@@ -334,7 +335,6 @@ def start_get_file_number(host, port, acc, pwd, download_dir):
 	t = threading.Thread(target=new_conn_get_file_number,args=(host, port, acc, pwd, download_dir))
 	DIRECT_DOWNLOAD_THREADS.append(t)
 	t.start()
-	print("DEBUG new conn get file number thread start",t)
 
 def new_conn_get_file_number(host, port, acc, pwd, download_dir):
 	global CONN2
@@ -442,12 +442,7 @@ def my_download(host, port, acc, pwd, save_dir, download_dir):
 
 	PROGRESS_BAR.pack_forget()
 	PROGRESS_LBL.pack_forget()
-	if DIRECT_DOWNLOAD_TOTAL == DIRECT_DOWNLOAD_COUNT:
-		printl("All {} files downloaded successfully!".\
-			format(DIRECT_DOWNLOAD_COUNT))
-	else:
-		#Should deleted the directory?
-		printl("DEBUG error, download number mismatch")
+
 	if not download_success:
 		return None
 	return os.path.join(save_dir,os.path.basename(download_dir))
@@ -737,8 +732,6 @@ class My_Ftp(object):
 		t_progress_tip.start()
 		PROGRESS_THREADS.append(t_progress_tip)
 		print("DEBUG my_ftp.py progress thread start",t_progress_tip)
-
-
 		
 		##############init()###############
 
@@ -755,12 +748,13 @@ class My_Ftp(object):
 		#so use r'[^\\r]'to explicitly tell the characters lasts until meeting a r'\\r'
 		#sometimes people write the url and finished with the period '.' so stop here.
 		#full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*[^\.,\r])'
-		full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.[^\r,\n,\.,\,]*)'
+		full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{1,3}\.\d{1,3})(:\d*)?(/.[^\r,\n,\.,\,]*)'
 		res = re.search(full_ftp_re,s)
 
 		if not res:
-			#host is a non-numeric domain name then we use r'(.[^/]*) to get the name string
-			full_ftp_re = r'ftp://(\w.*):(\w.*)@(.[^/]*)(:\d*)?(/.*[^\r,\n,\.])'
+			#host is a non-numeric domain name then we use r'(.[^/:]*) to get the name string
+			#no / and no : contained in the domain name then any character
+			full_ftp_re = r'ftp://(\w.*):(\w.*)@(.[^/:]*)(:\d*)?(/.*[^\r,\n,\.])'
 			res = re.search(full_ftp_re,s)
 
 		#res.group(0) the whole ftp url
@@ -836,7 +830,8 @@ class My_Ftp(object):
 					print("DEBUG found the flag of trace download request: ",res.group(0))
 					#there is trace upload flag
 					s_ftp = res.group(0)
-					dir_re = r'(/.*)+[^\.,\r,\n,\,]'
+					#dir_re = r'(/.*)+[^\.,\r,\n,\,]'
+					dir_re = r'(/.[^\,\r\n\.]*)+'
 					res_dir = re.search(dir_re, s_ftp)	
 					if res_dir:
 						dirname = res_dir.group(0)
@@ -1051,7 +1046,7 @@ class My_Ftp(object):
 				#record all the download info into ftp_log.txt
 				if not file_saved:
 					file_saved = "Failed"
-				printl("ftp_info: %s download: %s"%(str(ftp_info),file_saved))
+				printl("ftp_info: '%s' download result: '%s'"%(str(ftp_info),file_saved))
 
 				self.ftp_queue.pop(0)
 				self.v_ftp_number.set(str(len(self.ftp_queue)))
@@ -1076,6 +1071,7 @@ class My_Ftp(object):
 		global DIRECT_DOWNLOAD_STOP
 		global L_RESERVED_FTP
 		global FTP_INFO_HISTORY
+		global MUTEXT
 
 		interval_count = 0
 		find_folder = "inbox"
@@ -1124,8 +1120,8 @@ class My_Ftp(object):
 								if 'unicode' in str(type(s)):
 									s = s.encode('utf-8')
 								try_ftp_list.append(s)
-								#is here necessary to do the mutex?
-								self.ftp_queue.append(try_ftp_list[:])
+							#is here necessary to do the mutex?yes
+							self.ftp_queue.append(try_ftp_list[:])
 
 
 						#for the full ftp case
