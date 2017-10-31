@@ -755,7 +755,7 @@ class My_Ftp(object):
 		#so use r'[^\\r]'to explicitly tell the characters lasts until meeting a r'\\r'
 		#sometimes people write the url and finished with the period '.' so stop here.
 		#full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*[^\.,\r])'
-		full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.[^\r,\n,\.]*)'
+		full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.[^\r,\n,\.,\,]*)'
 		res = re.search(full_ftp_re,s)
 
 		if not res:
@@ -825,9 +825,10 @@ class My_Ftp(object):
 				#try every reserved servers
 
 				partial_ftp_re = \
-				r'(in TEC server.*(\n)?.*)|(traces are.*(\n)?.*)'+\
+				r'(TEC server.*(\n)?.*)|(traces are.*(\n)?.*)'+\
 				r'|(available traces.*(\n)?.*)|(download traces.*(\n)?.*)'+\
-				r'|(you can get.*(\n)?.*)|(traces upload.*(\n).*)'
+				r'|(you can get.*(\n)?.*)|(traces upload.*(\n).*)|(ftp server.*(\n).*)'+\
+				r'|(upload to.*(\n).*)'
 				res = re.search(partial_ftp_re, s, re.IGNORECASE)
 
 				dirname = ''
@@ -835,7 +836,7 @@ class My_Ftp(object):
 					print("DEBUG found the flag of trace download request: ",res.group(0))
 					#there is trace upload flag
 					s_ftp = res.group(0)
-					dir_re = r'(/.*)+[^\.,\r,\n]'
+					dir_re = r'(/.*)+[^\.,\r,\n,\,]'
 					res_dir = re.search(dir_re, s_ftp)	
 					if res_dir:
 						dirname = res_dir.group(0)
