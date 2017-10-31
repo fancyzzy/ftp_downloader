@@ -285,9 +285,6 @@ def ftp_download_dir(dirname):
 				#the filelines_bk is not in the same order with filelines
 				#filelines like:
 				#'drwxr-xr-x   2 ftpalcatel users        1024 Oct 26 14:46 SQ2DSL02.02C_20171026095345.0'
-				print("disorder!")
-				print ("DEBUG file=",file)
-				print("DEBUG filelines_bk[i]=",filelines_bk[i])
 				#There is a bug if the file name contains blanks
 				file_name = file.split()[-1]
 
@@ -342,7 +339,7 @@ def start_get_file_number(host, port, acc, pwd, download_dir):
 def new_conn_get_file_number(host, port, acc, pwd, download_dir):
 	global CONN2
 
-	print('DEBUG new conn, host:{0}, port:{1}, acc:{2}, pwd:{3}'\
+	print('start the conn2 for file number, host:{0}, port:{1}, acc:{2}, pwd:{3}'\
 		.format(host,port,acc,pwd))
 
 	try:
@@ -367,7 +364,7 @@ def get_file_number(dirname):
 	global DIRECT_DOWNLOAD_TOTAL
 	global CONN2
 
-	print("DEBUG get_file_number, dirname:'%s'"%dirname)
+	#print("DEBUG get_file_number, dirname:'%s'"%dirname)
 	try:
 		CONN2.cwd(dirname)
 		CONN2.voidcmd('TYPE I')
@@ -382,7 +379,7 @@ def get_file_number(dirname):
 		filelines_bk = CONN2.nlst()
 		CONN2.dir(filelines.append)
 		if len(filelines_bk) != len(filelines):
-			print("DEBUG number don't match\n")
+			printl("DEBUG ERROR number don't match\n")
 
 		i = 0
 		for file in filelines:
@@ -390,13 +387,13 @@ def get_file_number(dirname):
 				if filelines_bk[i] in file:
 					get_file_number(filelines_bk[i])
 				else:
-					print("disorderrrrrrrrrrrrrrrrr!")
-					print ("DEBUG file=",file)
+					#print("disorderrrrrrrrrrrrrrrrr!")
+					#print ("DEBUG file=",file)
 					get_file_number(file.split()[-1])
 				CONN2.cwd('..')
 			else:
 				DIRECT_DOWNLOAD_TOTAL += 1
-				print("DEBUG counting: ",DIRECT_DOWNLOAD_TOTAL)
+				#print("DEBUG counting: ",DIRECT_DOWNLOAD_TOTAL)
 			i += 1
 #############get_file_number()###############
 
@@ -739,7 +736,7 @@ class My_Ftp(object):
 		t_progress_tip = threading.Thread(target=self.start_progress_tip)
 		t_progress_tip.start()
 		PROGRESS_THREADS.append(t_progress_tip)
-		print("DEBUG progress thread start",t_progress_tip)
+		print("DEBUG my_ftp.py progress thread start",t_progress_tip)
 
 
 		
@@ -751,7 +748,7 @@ class My_Ftp(object):
 		from the string s to find the first ftp format string
 		return 'ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents'
 		'''
-		print("Debug start extract_ftp_info")
+		print("extract_ftp_info start")
 		#full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*?\r)'
 		#due to the mail content got from exchangelib is html fomat
 		#the matched result ended with a '\r' being the ending flag
@@ -773,7 +770,7 @@ class My_Ftp(object):
 		#res.group(4) the port number
 		#res.group(5) the download directory
 		if res:
-			print("DEBUG regular expression host res.group(0)=",res.group(0))
+			print("Get regular expression host res.group(0)=",res.group(0))
 			acc = res.group(1)
 			pwd = res.group(2)
 			host = res.group(3)
@@ -787,7 +784,7 @@ class My_Ftp(object):
 	
 			if acc and pwd and host and port and dirname:
 				ftp_info = FTP_INFO(host, port, acc, pwd, dirname)
-				print("DEBUG ftp info found: %s" % ''.join(ftp_info))
+				print("Get full ftp info: %s" % ''.join(ftp_info))
 				return ftp_info
 			else:
 				print("DEBUG error, some ftp info is none")
@@ -815,6 +812,7 @@ class My_Ftp(object):
 						self.v_host.set(host)
 						self.v_port.set(port)
 					print("DEBUG host:{},port:{} got!".format(self.v_host.get(),self.v_port.get()))
+					#here just return None to only update host and port
 					return None
 				else:		
 					print("DEBUG ftp info not found return None")
@@ -834,7 +832,7 @@ class My_Ftp(object):
 
 				dirname = ''
 				if res:
-					print("DEBUG found the trace download flag!",res.group(0))
+					print("DEBUG found the flag of trace download request: ",res.group(0))
 					#there is trace upload flag
 					s_ftp = res.group(0)
 					dir_re = r'(/.*)+[^\.,\r,\n]'
@@ -842,7 +840,7 @@ class My_Ftp(object):
 					if res_dir:
 						dirname = res_dir.group(0)
 						#debug why group(1) inacurate
-						print("DEBUG the dirname found:",dirname)
+						print("DEBUG get the dirname: ",dirname)
 						if dirname != None:
 							ftp_info = FTP_INFO('', '', '', '', dirname)
 							print("DEBUG partial ftp_info get: %s" % ''.join(ftp_info))
