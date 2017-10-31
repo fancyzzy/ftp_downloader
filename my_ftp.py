@@ -1106,7 +1106,7 @@ class My_Ftp(object):
 						#print("DEBUG plain_body:",plain_body)
 						ftp_info = self.extract_ftp_info(plain_body, from_mail=True)
 
-						if ftp_info not in FTP_INFO_HISTORY:
+						if (ftp_info != None) and (ftp_info not in FTP_INFO_HISTORY):
 							FTP_INFO_HISTORY.append(ftp_info)
 						else:
 							print("DBUEG already handled ftp_info")
