@@ -12,7 +12,6 @@ import socket
 import threading
 import cPickle as pickle
 import collections
-import threading
 import Queue
 import read_exchange
 from log_reserve import FTP_TIP_QUE as FTQ

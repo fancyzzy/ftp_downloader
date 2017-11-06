@@ -23,7 +23,7 @@ tz = EWSTimeZone.timezone('UTC')
 UTC_NOW = tz.localize(EWSDateTime.now())# - timedelta(hours=8)
 
 user_name = 'ad4\\tarzonz'
-pwd = 'CV_28763_10a'
+pwd = ''
 mail_addr = 'felix.zhang@alcatel-lucent.com'
 
 
