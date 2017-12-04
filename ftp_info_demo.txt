@@ -1,0 +1,43 @@
+ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training
+ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents/BMP
+ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents/CellT
+ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents/
+ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents/
+ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents/
+
+
+
+
+TEC server:
+
+ftp://ftpalcatel:ftp$alcatel1@172.23.102.135/ftp/1-6933291/OMCP1
+ftp://ftpalcatel:ftp$alcatel1@172.23.102.135/ftp/1-6933291/Oct26_NewSetTraces/OMCP1
+ftp://ftpalcatel:ftp$alcatel1@172.23.102.135/ftp/1-6933291/Oct26_NewSetTraces/OMCP2
+
+下不来
+ftp://ftpalcatel:ftp$alcatel1@172.23.102.135/ftp/1-6933291
+有not a regular file:
+ftp://ftpalcatel:ftp$alcatel1@172.23.102.135/ftp/1-6933291/OMCP1/NE1OE/20171024/tpDumpFiles
+
+遇到png有错误:
+ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/02_competence_level
+
+ftp://ftpalcatel:ftp$alcatel1@172.23.102.135/ftp/1-6933291/OMCP1/bssim.
+/ftp://ftpalcatel:ftp$alcatel1@172.23.102.135/ftp/1-6933291/OMCP1/bssim/bssim_5.trace.0.old.171024.185301
+/ftp/1-6933291/OMCP1/bssim
+ftp://ftpalcatel:ftp$alcatel1@172.23.102.135/ftp/1-6933291/
+
+Traces area available in TEC server under ftp://ftpalcatel:ftp$alcatel1@ftp2.alcatel.pt/ftp/1-6249113/After_migration.
+All available traces are in TEC server under /ftp/1-6300185/
+
+All the BSC trace upload to the TEC ftp server:/ftp/1-6300185, Could you please help check?
+
+
+plain text:
+\r\nTraces area available in TEC server under\r\nftp://ftpalcatel:ftp$alcatel1@ftp2.alcatel.pt/ftp/1-6298337.\r\n&nbsp;
+\r\nAll available traces are in TEC server under /ftp/1-6300185/\r\n&nbsp;\r\nin a short summary:
+\r\nHi\r\nTraces area available in TEC server under\r\nftp://ftpalcatel:ftp$alcatel1@172.23.102.135/ftp/1-6933291/OMCP1/bssim.\r\n\
+
+
+disturbance:
+;&nbsp;&nbsp; OMC BSSIM traces:\r\n2016/05/30 19:17:58:bssim:bssimaccess:(1):BSC 

@@ -65,6 +65,8 @@ FTP_INFO_HISTORY = []
 
 #all the data to be backup
 DATA_BAK = collections.namedtuple("DATA_BAK", "ftp_bak ol_bak")
+PARTIAL_FTP_RE = open('download_flag.txt','r').readlines()[0]
+print("DEBUG PARTIAL_FTP_RE= %s"%PARTIAL_FTP_RE)
 
 DIRECT_DOWNLOAD_STOP = True
 DIRECT_DOWNLOAD_THREADS = []
@@ -740,6 +742,7 @@ class My_Ftp(object):
 		from the string s to find the first ftp format string
 		return 'ftp://QD-BSC2:qdBSC#1234@135.242.80.16:8080/01_Training/02_PMU/02_Documents'
 		'''
+		global PARTIAL_FTP_RE
 		print("extract_ftp_info start")
 		#full_ftp_re = r'ftp://(\w.*):(\w.*)@(\d{2,3}\.\d{2,3}\.\d{2,3}\.\d{2,3})(:\d*)?(/.*?\r)'
 		#due to the mail content got from exchangelib is html fomat
@@ -817,11 +820,14 @@ class My_Ftp(object):
 				#then get it and combined with the reserved servers
 				#try every reserved servers
 
+				'''
 				partial_ftp_re = \
 				r'(TEC server.*(\n)?.*)|(traces are.*(\n)?.*)'+\
 				r'|(available traces.*(\n)?.*)|(download traces.*(\n)?.*)'+\
 				r'|(you can get.*(\n)?.*)|(traces upload.*(\n).*)|(ftp server.*(\n).*)'+\
 				r'|(upload to.*(\n).*)'
+				'''
+				partial_ftp_re = PARTIAL_FTP_RE
 				res = re.search(partial_ftp_re, s, re.IGNORECASE)
 
 				dirname = ''

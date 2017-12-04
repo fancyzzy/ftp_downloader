@@ -9,3 +9,4 @@ my_ftp.log
 ftp_download/*
 my_ftp_saves/*
 reserved_ftp.ini
+ftp_info.txt
