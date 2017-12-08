@@ -616,7 +616,7 @@ class My_Ftp(object):
 		self.entry_mail_add.grid(row=0,column=3)
 
 		#Domain//Usrnamer label and entry
-		self.label_csl = Label(self.fm_config, text = 'Domain/CSL:',justify = LEFT)
+		self.label_csl = Label(self.fm_config, text = 'Domain\CSL:',justify = LEFT)
 		self.label_csl.grid(row=1,column=0)
 		self.v_csl = StringVar()
 		self.entry_csl = Entry(self.fm_config, textvariabl=self.v_csl, width=27)
